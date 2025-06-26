@@ -1,7 +1,7 @@
 {
   "name": "sheworks-backend",
   "version": "1.0.0",
-  "description": "Backend for SheWorks e-commerce platform",
+  "description": "Backend for SheWorks e-commerce platform - Railway deployment",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
