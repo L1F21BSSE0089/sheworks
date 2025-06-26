@@ -1,0 +1,294 @@
+import { useState, useRef, useEffect } from "react";
+import { FaPaperPlane, FaGlobe, FaEllipsisV } from "react-icons/fa";
+import apiService from "../services/api";
+import socketService from "../services/socket";
+import { useAuth } from "../context/AuthContext";
+
+const languages = [
+  { code: "en", name: "English", flag: "🇺🇸" },
+  { code: "es", name: "Español", flag: "🇪🇸" },
+  { code: "fr", name: "Français", flag: "🇫🇷" },
+  { code: "de", name: "Deutsch", flag: "🇩🇪" },
+  { code: "it", name: "Italiano", flag: "🇮🇹" },
+  { code: "pt", name: "Português", flag: "🇵🇹" },
+  { code: "ru", name: "Русский", flag: "🇷🇺" },
+  { code: "zh", name: "中文", flag: "🇨🇳" },
+  { code: "ja", name: "日本語", flag: "🇯🇵" },
+  { code: "ko", name: "한국어", flag: "🇰🇷" },
+  { code: "ar", name: "العربية", flag: "🇸🇦" },
+  { code: "hi", name: "हिन्दी", flag: "🇮🇳" },
+];
+
+export default function Messages() {
+  const { user, userType } = useAuth();
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
+  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
+  const messagesEndRef = useRef(null);
+
+  // Connect to socket on mount
+  useEffect(() => {
+    if (user && user._id && userType) {
+      socketService.connect(localStorage.getItem("token"), user._id, userType);
+    }
+    return () => socketService.disconnect();
+  }, [user, userType]);
+
+  // Fetch conversations on mount
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    apiService.getConversations()
+      .then(res => {
+        setConversations(res.conversations || []);
+        if (res.conversations && res.conversations.length > 0) {
+          setSelectedConversation(res.conversations[0]);
+        }
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  // Fetch messages when conversation changes
+  useEffect(() => {
+    if (!selectedConversation) return;
+    setLoading(true);
+    apiService.getConversation(selectedConversation.participants.find(p => p.id !== user._id)?.id)
+      .then(res => setMessages(res.messages || []))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [selectedConversation, user]);
+
+  // Real-time message receiving
+  useEffect(() => {
+    const unsubscribe = socketService.onMessage((message) => {
+      if (
+        selectedConversation &&
+        (message.sender.id === user._id || message.recipient.id === user._id)
+      ) {
+        setMessages((prev) => [...prev, message]);
+      }
+    });
+    return unsubscribe;
+  }, [selectedConversation, user]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation) return;
+    setSending(true);
+    setError(null);
+    const recipient = selectedConversation.participants.find(p => p.id !== user._id);
+    try {
+      // Send via API for persistence
+      await apiService.sendMessage({
+        recipientId: recipient.id,
+        content: newMessage,
+        language: selectedLanguage
+      });
+      // Send via socket for real-time
+      socketService.sendMessage(recipient.id, newMessage, selectedLanguage, userType);
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: { id: user._id, type: userType },
+          recipient: { id: recipient.id, type: recipient.type },
+          content: { text: newMessage, language: selectedLanguage },
+          createdAt: new Date().toISOString(),
+        }
+      ]);
+      setNewMessage("");
+    } catch (err) {
+      setError("Failed to send message");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const getLanguageName = (code) => {
+    return languages.find(lang => lang.code === code)?.name || code;
+  };
+
+  const getLanguageFlag = (code) => {
+    return languages.find(lang => lang.code === code)?.flag || "🌐";
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto p-2 md:p-4">
+        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <div className="flex flex-col md:flex-row h-[80vh] md:h-[600px]">
+            {/* Sidebar - Conversation List */}
+            <div className="w-full md:w-1/3 border-r border-gray-200 bg-gray-50 max-h-60 md:max-h-full overflow-y-auto">
+              <div className="p-4 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-800">Messages</h2>
+                <p className="text-sm text-gray-600">Chat with our vendors</p>
+              </div>
+              <div className="overflow-y-auto h-48 md:h-full">
+                {loading ? (
+                  <div className="p-4 text-center text-gray-400">Loading...</div>
+                ) : conversations.length === 0 ? (
+                  <div className="p-4 text-center text-gray-400">No conversations yet.</div>
+                ) : conversations.map((conv) => {
+                  const other = conv.participants.find(p => p.id !== user._id);
+                  return (
+                    <div
+                      key={conv.conversationId}
+                      onClick={() => setSelectedConversation(conv)}
+                      className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors ${
+                        selectedConversation?.conversationId === conv.conversationId ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-xl">
+                          {other?.name?.charAt(0) || "?"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-900 truncate">{other?.name}</h3>
+                          <p className="text-sm text-gray-600 truncate">{conv.lastMessage?.content?.text || "No messages yet."}</p>
+                          <p className="text-xs text-gray-400">{conv.lastMessage?.createdAt ? new Date(conv.lastMessage.createdAt).toLocaleString() : ""}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Chat Area */}
+            <div className="flex-1 flex flex-col max-h-[60vh] md:max-h-full">
+              {/* Chat Header */}
+              <div className="p-4 border-b border-gray-200 bg-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-lg">
+                      {selectedConversation && selectedConversation.participants.find(p => p.id !== user._id)?.name?.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{selectedConversation && selectedConversation.participants.find(p => p.id !== user._id)?.name}</h3>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setShowLanguageSelector(!showLanguageSelector)}
+                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                      title="Select Language"
+                    >
+                      <FaGlobe className="text-gray-600" />
+                    </button>
+                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                      <FaEllipsisV className="text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Language Selector */}
+              {showLanguageSelector && (
+                <div className="p-4 border-b border-gray-200 bg-gray-50">
+                  <div className="grid grid-cols-3 gap-2">
+                    {languages.map((language) => (
+                      <button
+                        key={language.code}
+                        onClick={() => {
+                          setSelectedLanguage(language.code);
+                          setShowLanguageSelector(false);
+                        }}
+                        className={`p-2 rounded-lg text-sm flex items-center space-x-2 transition-colors ${
+                          selectedLanguage === language.code
+                            ? "bg-blue-500 text-white"
+                            : "bg-white hover:bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        <span>{language.flag}</span>
+                        <span>{language.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {loading ? (
+                  <div className="text-center text-gray-400">Loading messages...</div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center text-gray-400">No messages yet.</div>
+                ) : messages.map((message, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex ${message.sender.id === user._id ? "justify-end" : "justify-start"}`}
+                  >
+                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      message.sender.id === user._id
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-200 text-gray-800"
+                    }`}>
+                      <div className="flex items-center space-x-2 mb-1">
+                        <span className="text-xs opacity-75">{getLanguageFlag(message.content.language)}</span>
+                        <span className="text-xs opacity-75">{getLanguageName(message.content.language)}</span>
+                      </div>
+                      <p className="text-sm">{message.content.text}</p>
+                      <p className={`text-xs mt-1 ${
+                        message.sender.id === user._id ? "text-blue-100" : "text-gray-500"
+                      }`}>
+                        {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Message Input */}
+              <div className="p-4 border-t border-gray-200 bg-white">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-1 relative">
+                    <textarea
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder={`Type your message in ${getLanguageName(selectedLanguage)}...`}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      rows="1"
+                      disabled={!selectedConversation || sending}
+                    />
+                    <div className="absolute right-2 top-2">
+                      <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                        {getLanguageFlag(selectedLanguage)} {getLanguageName(selectedLanguage)}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim() || !selectedConversation || sending}
+                    className="p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FaPaperPlane />
+                  </button>
+                </div>
+                {error && <div className="text-red-500 text-sm text-center mt-2">{error}</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
