@@ -1,31 +1,51 @@
 {
-  "name": "sheworks-backend",
+  "name": "sheworks-frontend",
   "version": "1.0.0",
-  "description": "Backend for SheWorks e-commerce platform - Railway deployment",
-  "main": "server.js",
+  "description": "Frontend for SheWorks e-commerce platform - Vercel deployment",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite preview"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^7.5.0",
+    "@stripe/react-stripe-js": "^3.7.0",
+    "@stripe/stripe-js": "^7.4.0",
+    "@tailwindcss/postcss": "^4.1.11",
+    "autoprefixer": "^10.4.21",
+    "axios": "^1.5.0",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "stripe": "^13.5.0",
-    "nodemailer": "^6.9.4",
-    "socket.io": "^4.7.2",
-    "multer": "^1.4.5-lts.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.10.0",
     "express-validator": "^7.0.1",
     "helmet": "^7.0.0",
-    "express-rate-limit": "^6.10.0"
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^7.5.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^6.15.0",
+    "socket.io": "^4.7.2",
+    "socket.io-client": "^4.7.2",
+    "stripe": "^13.5.0",
+    "tailwindcss": "^4.1.11"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "@vitejs/plugin-react": "^4.0.4",
+    "nodemon": "^3.0.1",
+    "vite": "^4.4.9"
   },
-  "keywords": ["e-commerce", "nodejs", "express", "mongodb"],
+  "keywords": [
+    "e-commerce",
+    "react",
+    "vite",
+    "frontend"
+  ],
   "author": "Your Name",
   "license": "MIT"
 }
