@@ -45,7 +45,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/she-ecomm
 .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Import routes
-const authRoutes = require('./routes/auth');
+const { router: authRoutes } = require('./routes/auth');
 // const userRoutes = require('./routes/users');
 // const vendorRoutes = require('./routes/vendors');
 const productRoutes = require('./routes/products');

@@ -307,4 +307,4 @@ router.post('/logout', verifyToken, (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
-module.exports = router; 
+module.exports = { router, verifyToken }; 

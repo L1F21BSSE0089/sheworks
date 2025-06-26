@@ -4,12 +4,12 @@ const Vendor = require('../models/Vendor');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const adminMiddleware = require('../middleware/admin');
-const authMiddleware = require('./auth').verifyToken || ((req, res, next) => next());
+const { verifyToken } = require('./auth');
 
 const router = express.Router();
 
 // Protect all routes
-router.use(authMiddleware, adminMiddleware);
+router.use(verifyToken, adminMiddleware);
 
 // Users
 router.get('/users', async (req, res) => {
