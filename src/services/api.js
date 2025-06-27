@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://your-railway-app.railway.app/api';
+const API_URL = (import.meta.env.VITE_API_URL || 'https://sheworks-production.up.railway.app') + '/api';
 
 class ApiService {
   constructor() {

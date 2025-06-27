@@ -133,72 +133,44 @@ export default function Home({ showToast }) {
     setLoading(true);
     setError(null);
     
-    // Build query parameters
-    const params = new URLSearchParams();
-    if (filters.categories.length > 0) {
-      params.append('category', filters.categories[0]); // For now, use first category
-    }
-    if (debouncedSearch) {
-      params.append('search', debouncedSearch);
-    }
-    if (sort) {
-      params.append('sort', sort);
-    }
-    params.append('page', pagination.page.toString());
-    params.append('limit', pagination.limit.toString());
-    
-    apiService.request(`/products?${params.toString()}`)
+    // Use simple getProducts API for now to fix the issue
+    apiService.getProducts()
       .then(res => {
         console.log('Products loaded:', res.products?.length || 0);
+        setProducts(res.products || []);
         
-        // If it's the first page, replace products, otherwise append
-        if (pagination.page === 1) {
-          setProducts(res.products || []);
-        } else {
-          setProducts(prev => [...prev, ...(res.products || [])]);
-        }
-        
-        setPagination(res.pagination || { page: 1, limit: 50, total: 0, pages: 0 });
-        setHasMore(res.pagination && res.pagination.page < res.pagination.pages);
-        
-        // Collect all tags and price range from all loaded products
-        const allProducts = pagination.page === 1 ? (res.products || []) : [...products, ...(res.products || [])];
+        // Collect all tags and price range
         const tags = new Set();
         let minPrice = Infinity, maxPrice = 0;
-        allProducts.forEach(p => {
+        (res.products || []).forEach(p => {
           (p.tags || []).forEach(tag => tags.add(tag));
           if (p.price?.current < minPrice) minPrice = p.price.current;
           if (p.price?.current > maxPrice) maxPrice = p.price.current;
         });
         setAllTags(Array.from(tags));
         setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
-        if (pagination.page === 1) {
-          setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
-        }
+        setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
       })
       .catch(err => {
         console.error('Error loading products:', err);
         setError(err.message);
       })
       .finally(() => setLoading(false));
-  }, [pagination.page, debouncedSearch, sort, filters.categories]);
+  }, []);
 
   const loadMore = useCallback(() => {
-    if (hasMore && !loading) {
-      setPagination(prev => ({ ...prev, page: prev.page + 1 }));
-    }
-  }, [hasMore, loading]);
+    // Simplified for now - just show all products
+    console.log('Load more clicked');
+  }, []);
 
   const resetPagination = useCallback(() => {
-    setPagination({ page: 1, limit: 50, total: 0, pages: 0 });
-    setProducts([]);
+    // Simplified for now
+    console.log('Reset pagination');
   }, []);
 
   // Reset pagination when filters change
   useEffect(() => {
-    if (pagination.page > 1) {
-      resetPagination();
-    }
+    // Simplified for now
   }, [debouncedSearch, sort, filters.categories, resetPagination]);
 
   const handleAddToCart = useCallback((product, qty) => {
@@ -431,7 +403,7 @@ export default function Home({ showToast }) {
           </div>
           
           {/* Load More Button */}
-          {hasMore && (
+          {false && (
             <div className="flex justify-center mt-8">
               <button
                 onClick={loadMore}
@@ -444,9 +416,9 @@ export default function Home({ showToast }) {
           )}
           
           {/* Show total count */}
-          {pagination.total > 0 && (
+          {products.length > 0 && (
             <div className="text-center mt-4 text-gray-600">
-              Showing {products.length} of {pagination.total} products
+              Showing {products.length} products
             </div>
           )}
         </section>
