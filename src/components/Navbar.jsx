@@ -49,7 +49,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate("/");
+      navigate("/login");
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -61,79 +61,172 @@ export default function Navbar() {
       <div className="bg-primary h-4 w-full" />
       <nav className="bg-white text-black shadow flex items-center justify-between px-4 md:px-8 py-4 relative" aria-label="Main navigation">
         <Link to="/" className="text-2xl font-bold font-mono">SheWorks</Link>
-        {/* Hamburger for mobile */}
+        
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center gap-8">
+          {/* Nav links */}
+          <ul className="flex gap-8">
+            {navLinks.map(link => (
+              <li key={link.name}>
+                <Link
+                  to={link.to}
+                  className={`hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === link.to ? "font-semibold underline" : ""}`}
+                >
+                  {link.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          
+          {/* Desktop User Actions */}
+          <div className="flex items-center gap-4">
+            <input
+              className="bg-gray-100 px-3 py-1 rounded focus:outline-primary"
+              placeholder="What are you looking for?"
+              aria-label="Search products"
+            />
+            <Link to="/wishlist" aria-label="Wishlist" className="relative">
+              <FaHeart className="text-primary text-xl cursor-pointer" />
+              {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">{wishlist.length}</span>}
+            </Link>
+            <Link to="/cart" aria-label="Cart"><FaShoppingCart className="text-primary text-xl cursor-pointer" /></Link>
+            <Link to="/messages" aria-label="Messages"><FaComments className="text-primary text-xl cursor-pointer" /></Link>
+            {user && (
+              <div className="relative cursor-pointer" onClick={() => navigate("/notifications")} tabIndex={0} aria-label="Notifications" role="button">
+                <FaBell className="text-primary text-xl" />
+                {unread > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">{unread}</span>}
+              </div>
+            )}
+            <Link to="/account" aria-label="Account"><FaUser className="text-primary text-xl cursor-pointer" /></Link>
+            {userType === 'vendor' && (
+              <Link to="/vendor-dashboard" className="nav-link" aria-label="Vendor Dashboard">Vendor Dashboard</Link>
+            )}
+            {userType === 'admin' && (
+              <Link to="/admin-dashboard" className="nav-link" aria-label="Admin Dashboard">Admin Dashboard</Link>
+            )}
+            <select
+              className="bg-gray-100 px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              value={language}
+              onChange={e => setLanguage(e.target.value)}
+              aria-label="Select language"
+            >
+              <option value="en">English</option>
+              <option value="ur">اردو</option>
+            </select>
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors"
+                aria-label="Logout"
+              >
+                <FaSignOutAlt className="inline mr-1" />
+                Logout
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark transition-colors"
+              >
+                Login
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Hamburger */}
         <button className="md:hidden text-2xl ml-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={() => setMenuOpen(m => !m)} aria-label={menuOpen ? "Close menu" : "Open menu"}>
           {menuOpen ? <FaTimes /> : <FaBars />}
         </button>
-        {/* Nav links */}
-        <ul className={`flex-col md:flex-row md:flex gap-8 absolute md:static top-full left-0 w-full md:w-auto bg-white md:bg-transparent z-40 shadow md:shadow-none transition-all duration-200 ${menuOpen ? 'flex' : 'hidden'} md:flex`}>
-          {navLinks.map(link => (
-            <li key={link.name}>
+      </nav>
+
+      {/* Mobile Navigation Menu */}
+      {menuOpen && (
+        <div className="md:hidden absolute top-full left-0 w-full bg-white shadow-lg z-50 border-t border-gray-200">
+          <div className="p-4 space-y-4">
+            {/* Mobile Nav Links */}
+            <div className="space-y-2">
+              {navLinks.map(link => (
+                <Link
+                  key={link.name}
+                  to={link.to}
+                  className={`block py-2 px-4 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === link.to ? "font-semibold bg-gray-100" : ""}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </div>
+
+            {/* Mobile Search */}
+            <input
+              className="bg-gray-100 px-3 py-2 rounded w-full focus:outline-primary"
+              placeholder="What are you looking for?"
+              aria-label="Search products"
+            />
+
+            {/* Mobile User Actions */}
+            <div className="flex items-center justify-between">
+              <div className="flex gap-4">
+                <Link to="/wishlist" aria-label="Wishlist" className="relative">
+                  <FaHeart className="text-primary text-xl cursor-pointer" />
+                  {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">{wishlist.length}</span>}
+                </Link>
+                <Link to="/cart" aria-label="Cart"><FaShoppingCart className="text-primary text-xl cursor-pointer" /></Link>
+                <Link to="/messages" aria-label="Messages"><FaComments className="text-primary text-xl cursor-pointer" /></Link>
+                {user && (
+                  <div className="relative cursor-pointer" onClick={() => { setMenuOpen(false); navigate("/notifications"); }} tabIndex={0} aria-label="Notifications" role="button">
+                    <FaBell className="text-primary text-xl" />
+                    {unread > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">{unread}</span>}
+                  </div>
+                )}
+                <Link to="/account" aria-label="Account"><FaUser className="text-primary text-xl cursor-pointer" /></Link>
+              </div>
+              
+              <select
+                className="bg-gray-100 px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                value={language}
+                onChange={e => setLanguage(e.target.value)}
+                aria-label="Select language"
+              >
+                <option value="en">English</option>
+                <option value="ur">اردو</option>
+              </select>
+            </div>
+
+            {/* Mobile Vendor/Admin Links */}
+            {userType === 'vendor' && (
+              <Link to="/vendor-dashboard" className="block py-2 px-4 rounded hover:bg-gray-100" onClick={() => setMenuOpen(false)}>
+                Vendor Dashboard
+              </Link>
+            )}
+            {userType === 'admin' && (
+              <Link to="/admin-dashboard" className="block py-2 px-4 rounded hover:bg-gray-100" onClick={() => setMenuOpen(false)}>
+                Admin Dashboard
+              </Link>
+            )}
+
+            {/* Mobile Login/Logout */}
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="w-full bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
+                aria-label="Logout"
+              >
+                <FaSignOutAlt className="inline mr-2" />
+                Logout
+              </button>
+            ) : (
               <Link
-                to={link.to}
-                className={`hover:text-primary block py-2 md:py-0 px-4 md:px-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === link.to ? "font-semibold underline" : ""}`}
+                to="/login"
+                className="block w-full bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark transition-colors text-center"
                 onClick={() => setMenuOpen(false)}
               >
-                {link.name}
+                Login
               </Link>
-            </li>
-          ))}
-        </ul>
-        {/* User actions */}
-        <div className={`gap-4 items-center ${menuOpen ? 'flex flex-col absolute top-full left-0 w-full bg-white z-40 p-4 md:static md:flex-row md:w-auto md:bg-transparent md:p-0' : 'hidden md:flex'} transition-all duration-200`}>
-          <input
-            className="bg-gray-100 px-3 py-1 rounded focus:outline-primary w-full md:w-auto"
-            placeholder="What are you looking for?"
-            aria-label="Search products"
-          />
-          <Link to="/wishlist" aria-label="Wishlist" className="relative">
-            <FaHeart className="text-primary text-xl cursor-pointer" />
-            {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">{wishlist.length}</span>}
-          </Link>
-          <Link to="/cart" aria-label="Cart"><FaShoppingCart className="text-primary text-xl cursor-pointer" /></Link>
-          <Link to="/messages" aria-label="Messages"><FaComments className="text-primary text-xl cursor-pointer" /></Link>
-          {user && (
-            <div className="relative cursor-pointer" onClick={() => { setMenuOpen(false); navigate("/notifications"); }} tabIndex={0} aria-label="Notifications" role="button">
-              <FaBell className="text-primary text-xl" />
-              {unread > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">{unread}</span>}
-            </div>
-          )}
-          <Link to="/account" aria-label="Account"><FaUser className="text-primary text-xl cursor-pointer" /></Link>
-          {userType === 'vendor' && (
-            <Link to="/vendor-dashboard" className="nav-link" onClick={() => setMenuOpen(false)} aria-label="Vendor Dashboard">Vendor Dashboard</Link>
-          )}
-          {userType === 'admin' && (
-            <Link to="/admin-dashboard" className="nav-link" onClick={() => setMenuOpen(false)} aria-label="Admin Dashboard">Admin Dashboard</Link>
-          )}
-          <select
-            className="bg-gray-100 px-2 py-1 rounded border border-gray-300 text-sm mr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            value={language}
-            onChange={e => setLanguage(e.target.value)}
-            aria-label="Select language"
-          >
-            <option value="en">English</option>
-            <option value="ur">اردو</option>
-          </select>
-          {user ? (
-            <button
-              onClick={handleLogout}
-              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors"
-              aria-label="Logout"
-            >
-              <FaSignOutAlt className="inline mr-1" />
-              Logout
-            </button>
-          ) : (
-            <Link
-              to="/login"
-              className="bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark transition-colors"
-              onClick={() => setMenuOpen(false)}
-            >
-              Login
-            </Link>
-          )}
+            )}
+          </div>
         </div>
-      </nav>
+      )}
     </header>
   );
 }
