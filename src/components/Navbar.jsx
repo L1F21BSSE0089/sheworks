@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { FaHeart, FaShoppingCart, FaUser, FaComments, FaBell, FaBars, FaTimes } from "react-icons/fa";
+import { FaHeart, FaShoppingCart, FaUser, FaComments, FaBell, FaBars, FaTimes, FaSignOutAlt } from "react-icons/fa";
 import { useEffect, useState } from "react";
 import apiService from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -16,11 +16,20 @@ const navLinks = [
 export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, userType } = useAuth();
+  const { user, userType, logout } = useAuth();
   const [unread, setUnread] = useState(0);
   const { language, setLanguage } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const { wishlist } = useWishlist();
+
+  // Dynamic nav links based on authentication status
+  const navLinks = [
+    { name: "Home", to: "/" },
+    { name: "Contact", to: "/contact" },
+    { name: "About", to: "/about" },
+    // Only show Sign Up if user is not logged in
+    ...(!user ? [{ name: "Sign Up", to: "/signup" }] : [])
+  ];
 
   useEffect(() => {
     if (user) {
@@ -36,6 +45,15 @@ export default function Navbar() {
       return () => off && off();
     }
   }, [user, userType]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <header className="bg-primary text-white">
@@ -96,6 +114,24 @@ export default function Navbar() {
             <option value="en">English</option>
             <option value="ur">اردو</option>
           </select>
+          {user ? (
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors"
+              aria-label="Logout"
+            >
+              <FaSignOutAlt className="inline mr-1" />
+              Logout
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              Login
+            </Link>
+          )}
         </div>
       </nav>
     </header>

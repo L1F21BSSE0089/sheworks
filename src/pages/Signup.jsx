@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import apiService from "../services/api";
 
 export default function Signup() {
   const [userType, setUserType] = useState("customer");
@@ -22,18 +23,18 @@ export default function Signup() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Initialize Google OAuth - temporarily disabled until client ID is set up
-    // if (window.google) {
-    //   window.google.accounts.id.initialize({
-    //     client_id: "YOUR_GOOGLE_CLIENT_ID", // You'll need to replace this with your actual Google Client ID
-    //     callback: handleGoogleSignup,
-    //   });
-    //   
-    //   window.google.accounts.id.renderButton(
-    //     document.getElementById("google-signup-button"),
-    //     { theme: "outline", size: "large", width: "100%" }
-    //   );
-    // }
+    // Initialize Google OAuth
+    if (window.google) {
+      window.google.accounts.id.initialize({
+        client_id: "YOUR_GOOGLE_CLIENT_ID", // You'll need to replace this with your actual Google Client ID
+        callback: handleGoogleSignup,
+      });
+      
+      window.google.accounts.id.renderButton(
+        document.getElementById("google-signup-button"),
+        { theme: "outline", size: "large", width: "100%" }
+      );
+    }
   }, []);
 
   const handleSubmit = async (e) => {
@@ -49,7 +50,7 @@ export default function Signup() {
           firstName,
           lastName
         }, "customer");
-        navigate("/account");
+        navigate("/");
       } else {
         await register({
           businessName,
@@ -64,7 +65,7 @@ export default function Signup() {
             category
           }
         }, "vendor");
-        navigate("/account");
+        navigate("/");
       }
     } catch (err) {
       setError(err.message || "Signup failed");
@@ -102,11 +103,11 @@ export default function Signup() {
         throw new Error(data.error || 'Google signup failed');
       }
 
-      // Store token and user data
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
-      navigate("/account");
+      // Use AuthContext to set the user
+      apiService.setToken(data.token);
+      // You might need to update the AuthContext to handle Google users
+      // For now, we'll just navigate to home
+      navigate("/");
     } catch (err) {
       setError(err.message || "Google signup failed");
     } finally {
@@ -252,10 +253,7 @@ export default function Signup() {
           {error && <div className="text-red-500 text-sm text-center">{error}</div>}
         </form>
         <div className="mt-4 w-full max-w-md">
-          <button className="bg-white border w-full py-2 rounded flex items-center justify-center gap-2 opacity-50 cursor-not-allowed">
-            <img src="/google.png" alt="Google" className="h-5" />
-            Sign up with Google (Coming Soon)
-          </button>
+          <div id="google-signup-button"></div>
         </div>
         <div className="mt-4 text-sm text-gray-600">
           Already have an account? <Link to="/login" className="text-primary underline">Login</Link>
