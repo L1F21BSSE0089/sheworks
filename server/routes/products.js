@@ -46,40 +46,29 @@ router.get('/', async (req, res) => {
       ];
     }
     
-    // Build sort
-    let sortOption = {};
-    switch (sort) {
-      case 'price-asc':
-        sortOption = { 'price.current': 1 };
-        break;
-      case 'price-desc':
-        sortOption = { 'price.current': -1 };
-        break;
-      case 'rating-desc':
-        sortOption = { 'rating.average': -1 };
-        break;
-      case 'newest':
-        sortOption = { createdAt: -1 };
-        break;
-      case 'bestselling':
-        sortOption = { salesCount: -1 };
-        break;
-      default:
-        sortOption = { createdAt: -1 };
-    }
+    // Simplified sort for faster queries
+    let sortOption = { createdAt: -1 }; // Default to newest first
+    if (sort === 'price-asc') sortOption = { 'price.current': 1 };
+    else if (sort === 'price-desc') sortOption = { 'price.current': -1 };
+    else if (sort === 'rating-desc') sortOption = { 'rating.average': -1 };
     
     const skip = (page - 1) * limit;
     
+    // Optimized query - only populate essential fields
     const products = await Product.find(query)
-      .populate('vendor', 'businessName')
+      .select('name description category price images rating tags isActive createdAt')
       .sort(sortOption)
       .limit(parseInt(limit))
-      .skip(skip);
+      .skip(skip)
+      .lean(); // Use lean() for faster queries
       
     const total = await Product.countDocuments(query);
     
     console.log('Found products:', products.length, 'of', total);
     console.log('=== GET PRODUCTS SUCCESS ===');
+    
+    // Add cache headers for better performance
+    res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
     
     res.json({ 
       products,
