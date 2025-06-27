@@ -207,6 +207,10 @@ class ApiService {
     return this.request('/orders/vendor');
   }
 
+  async getOrders() {
+    return this.request('/orders');
+  }
+
   async getOrder(id) {
     return this.request(`/orders/${id}`);
   }

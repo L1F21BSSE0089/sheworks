@@ -29,7 +29,7 @@ export default function VendorDashboard() {
   useEffect(() => {
     if (userType !== "vendor") return;
     setOrdersLoading(true);
-    apiService.getOrders()
+    apiService.getVendorOrders()
       .then(res => setOrders(res.orders || []))
       .catch(err => setOrdersError(err.message))
       .finally(() => setOrdersLoading(false));
