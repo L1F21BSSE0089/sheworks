@@ -22,18 +22,18 @@ export default function Signup() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Initialize Google OAuth
-    if (window.google) {
-      window.google.accounts.id.initialize({
-        client_id: "YOUR_GOOGLE_CLIENT_ID", // You'll need to replace this with your actual Google Client ID
-        callback: handleGoogleSignup,
-      });
-      
-      window.google.accounts.id.renderButton(
-        document.getElementById("google-signup-button"),
-        { theme: "outline", size: "large", width: "100%" }
-      );
-    }
+    // Initialize Google OAuth - temporarily disabled until client ID is set up
+    // if (window.google) {
+    //   window.google.accounts.id.initialize({
+    //     client_id: "YOUR_GOOGLE_CLIENT_ID", // You'll need to replace this with your actual Google Client ID
+    //     callback: handleGoogleSignup,
+    //   });
+    //   
+    //   window.google.accounts.id.renderButton(
+    //     document.getElementById("google-signup-button"),
+    //     { theme: "outline", size: "large", width: "100%" }
+    //   );
+    // }
   }, []);
 
   const handleSubmit = async (e) => {
@@ -251,7 +251,12 @@ export default function Signup() {
           </button>
           {error && <div className="text-red-500 text-sm text-center">{error}</div>}
         </form>
-        <div id="google-signup-button" className="mt-4 w-full max-w-md"></div>
+        <div className="mt-4 w-full max-w-md">
+          <button className="bg-white border w-full py-2 rounded flex items-center justify-center gap-2 opacity-50 cursor-not-allowed">
+            <img src="/google.png" alt="Google" className="h-5" />
+            Sign up with Google (Coming Soon)
+          </button>
+        </div>
         <div className="mt-4 text-sm text-gray-600">
           Already have an account? <Link to="/login" className="text-primary underline">Login</Link>
         </div>
