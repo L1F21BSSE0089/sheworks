@@ -43,7 +43,16 @@ class ApiService {
     console.log('URL:', url);
     console.log('Method:', options.method || 'GET');
     console.log('Headers:', config.headers);
-    console.log('Body:', options.body || 'No body');
+    if (options.body) {
+      try {
+        const parsedBody = JSON.parse(options.body);
+        console.log('Body (parsed):', parsedBody);
+      } catch (e) {
+        console.log('Body (raw):', options.body);
+      }
+    } else {
+      console.log('Body:', 'No body');
+    }
 
     try {
       const response = await fetch(url, config);
@@ -68,7 +77,19 @@ class ApiService {
 
       if (!response.ok) {
         console.error('Response not OK:', data);
-        throw new Error(data.error || 'Something went wrong');
+        
+        // Handle validation errors specifically
+        if (data.errors && Array.isArray(data.errors)) {
+          const errorMessages = data.errors.map(err => err.msg || err.message).join(', ');
+          throw new Error(errorMessages);
+        }
+        
+        // Handle other error types
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        
+        throw new Error('Something went wrong');
       }
 
       console.log('=== API REQUEST SUCCESS ===');
