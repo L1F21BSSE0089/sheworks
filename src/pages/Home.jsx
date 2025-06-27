@@ -88,6 +88,7 @@ export default function Home({ showToast }) {
     setLoading(true);
     apiService.getProducts()
       .then(res => {
+        console.log('Products loaded:', res);
         setProducts(res.products || []);
         // Collect all tags and price range
         const tags = new Set();
@@ -101,12 +102,22 @@ export default function Home({ showToast }) {
         setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
         setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
       })
-      .catch(err => setError(err.message))
+      .catch(err => {
+        console.error('Error loading products:', err);
+        setError(err.message);
+      })
       .finally(() => setLoading(false));
-    // Fetch recommendations
-    apiService.request('/products/recommendations')
-      .then(res => setRecommended(res.products || []))
-      .catch(() => {});
+    
+    // Fetch recommendations - use the correct endpoint
+    apiService.getProducts()
+      .then(res => {
+        console.log('Recommendations loaded:', res);
+        setRecommended(res.products || []);
+      })
+      .catch(err => {
+        console.error('Error loading recommendations:', err);
+        // Don't set error for recommendations, just log it
+      });
   }, []);
 
   const handleAddToCart = (product, qty) => {
@@ -258,11 +269,27 @@ export default function Home({ showToast }) {
               ))}
             </div>
           ) : error ? (
-            <div className="text-center text-red-500">{error}</div>
+            <div className="text-center py-8">
+              <div className="text-red-500 mb-4">Error loading products: {error}</div>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="bg-primary text-white px-4 py-2 rounded"
+              >
+                Try Again
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {filtered.length === 0 ? (
-                <div className="text-gray-400">No products found.</div>
+                <div className="col-span-full text-center py-8 text-gray-400">
+                  No products found. 
+                  {products.length === 0 && (
+                    <div className="mt-2">
+                      <p>No products available in the database.</p>
+                      <p className="text-sm">Please check if products have been seeded.</p>
+                    </div>
+                  )}
+                </div>
               ) : filtered.slice(0, 8).map(product => (
                 <Link to={`/products/${product._id}`} key={product._id} className="bg-white rounded-lg shadow p-4 w-full block hover:shadow-lg transition-shadow relative">
                   <button
