@@ -133,24 +133,20 @@ export default function Home({ showToast }) {
     setLoading(true);
     setError(null);
     
-    // Use simple getProducts API for now to fix the issue
-    apiService.getProducts()
-      .then(res => {
+    // Optimized product loading - only fetch what we need
+    const loadProducts = async () => {
+      try {
+        const res = await apiService.getProducts();
         console.log('=== PRODUCTS API RESPONSE ===');
-        console.log('Full response:', res);
-        console.log('Response type:', typeof res);
-        console.log('Response keys:', Object.keys(res || {}));
+        console.log('Products loaded:', res.products?.length || 0);
         
         // Handle different response structures
         let productsArray = [];
         if (Array.isArray(res)) {
-          // Direct array response
           productsArray = res;
         } else if (res && Array.isArray(res.products)) {
-          // Object with products array
           productsArray = res.products;
         } else if (res && res.data && Array.isArray(res.data)) {
-          // Object with data array
           productsArray = res.data;
         } else {
           console.error('Unexpected response structure:', res);
@@ -158,27 +154,32 @@ export default function Home({ showToast }) {
           return;
         }
         
-        console.log('Products array length:', productsArray.length);
-        console.log('First product:', productsArray[0]);
         setProducts(productsArray);
         
-        // Collect all tags and price range
-        const tags = new Set();
-        let minPrice = Infinity, maxPrice = 0;
-        productsArray.forEach(p => {
-          (p.tags || []).forEach(tag => tags.add(tag));
-          if (p.price?.current < minPrice) minPrice = p.price.current;
-          if (p.price?.current > maxPrice) maxPrice = p.price.current;
-        });
-        setAllTags(Array.from(tags));
-        setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
-        setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
-      })
-      .catch(err => {
+        // Only calculate tags and price range if we have products
+        if (productsArray.length > 0) {
+          const tags = new Set();
+          let minPrice = Infinity, maxPrice = 0;
+          
+          productsArray.forEach(p => {
+            (p.tags || []).forEach(tag => tags.add(tag));
+            if (p.price?.current < minPrice) minPrice = p.price.current;
+            if (p.price?.current > maxPrice) maxPrice = p.price.current;
+          });
+          
+          setAllTags(Array.from(tags));
+          setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
+          setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
+        }
+      } catch (err) {
         console.error('Error loading products:', err);
         setError(err.message);
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
   }, []);
 
   const loadMore = useCallback(() => {
@@ -262,6 +263,30 @@ export default function Home({ showToast }) {
       return f;
     });
   };
+
+  // Loading skeleton component
+  const ProductSkeleton = () => (
+    <div className="bg-white rounded-lg shadow p-4 w-full animate-pulse">
+      <div className="bg-gray-300 rounded h-32 w-full mb-2"></div>
+      <div className="bg-gray-300 rounded h-4 w-3/4 mb-2"></div>
+      <div className="bg-gray-300 rounded h-4 w-1/2 mb-2"></div>
+      <div className="bg-gray-300 rounded h-4 w-1/4 mb-2"></div>
+      <div className="bg-gray-300 rounded h-8 w-full"></div>
+    </div>
+  );
+
+  // Show skeleton immediately while loading
+  if (loading) {
+    return (
+      <div className="px-4 md:px-8 py-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, i) => (
+            <ProductSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -348,13 +373,7 @@ export default function Home({ showToast }) {
             {(filters.price[0] !== priceRange[0] || filters.price[1] !== priceRange[1]) && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Price: ₨{filters.price[0]} - ₨{filters.price[1]} <button className="ml-1" onClick={() => removeFilter("price")}>×</button></span>}
           </div>
           {/* Product Grid */}
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-white rounded-lg shadow p-4 w-full animate-pulse h-64" />
-              ))}
-            </div>
-          ) : error ? (
+          {error ? (
             <div className="text-center py-8">
               <div className="text-red-500 mb-4">Error loading products: {error}</div>
               <button 
@@ -366,17 +385,12 @@ export default function Home({ showToast }) {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {filtered.length === 0 ? (
+              {products.length === 0 ? (
                 <div className="col-span-full text-center py-8 text-gray-400">
-                  No products found. 
-                  {products.length === 0 && (
-                    <div className="mt-2">
-                      <p>No products available in the database.</p>
-                      <p className="text-sm">Please check if products have been seeded.</p>
-                    </div>
-                  )}
+                  <p className="text-lg font-semibold mb-2">No products found</p>
+                  <p className="text-sm">Please check back later or contact support.</p>
                 </div>
-              ) : filtered.slice(0, 8).map(product => (
+              ) : products.slice(0, 8).map(product => (
                 <Link to={`/products/${product._id}`} key={product._id} className="bg-white rounded-lg shadow p-4 w-full block hover:shadow-lg transition-shadow relative">
                   <button
                     className="absolute top-2 right-2 z-10 text-primary hover:text-red-500 focus:outline-none"
@@ -396,12 +410,13 @@ export default function Home({ showToast }) {
                       src={product.images && product.images.length > 0 ? product.images[0].url : "/shop.webp"}
                       alt={product.name}
                       className="rounded h-32 w-full object-cover"
+                      loading="lazy"
                     />
                   </div>
                   <div className="mt-2 font-semibold truncate">{product.name}</div>
                   <div className="text-primary font-bold">
-                    ₨{product.price.current}
-                    {product.price.original && (
+                    ₨{product.price?.current || 0}
+                    {product.price?.original && (
                       <span className="text-gray-400 line-through ml-2">₨{product.price.original}</span>
                     )}
                   </div>
@@ -411,7 +426,7 @@ export default function Home({ showToast }) {
                   </div>
                   <div className="mt-2">
                     <button
-                      className="bg-primary text-white w-full py-1 rounded"
+                      className="bg-primary text-white w-full py-1 rounded hover:bg-primary-dark transition-colors"
                       onClick={e => { e.preventDefault(); handleAddToCart(product, 1); }}
                     >
                       Add To Cart
