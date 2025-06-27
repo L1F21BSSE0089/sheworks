@@ -340,13 +340,39 @@ router.get('/unread-count', verifyToken, async (req, res) => {
 // Get available vendors for customer
 router.get('/vendors', verifyToken, async (req, res) => {
   try {
-    const vendors = await Vendor.find({ 
+    console.log('🔍 Fetching vendors...');
+    
+    // First try with current filters
+    let vendors = await Vendor.find({ 
       status: 'active',
       'verification.isVerified': true 
     })
     .select('businessName businessInfo category languages rating email contactPerson')
     .sort({ 'rating.average': -1 });
 
+    console.log('📊 Vendors with strict filters:', vendors.length);
+
+    // If no vendors found, try without verification filter
+    if (vendors.length === 0) {
+      vendors = await Vendor.find({ 
+        status: 'active'
+      })
+      .select('businessName businessInfo category languages rating email contactPerson')
+      .sort({ 'rating.average': -1 });
+      
+      console.log('📊 Vendors without verification filter:', vendors.length);
+    }
+
+    // If still no vendors, get all vendors
+    if (vendors.length === 0) {
+      vendors = await Vendor.find({})
+        .select('businessName businessInfo category languages rating email contactPerson')
+        .sort({ 'rating.average': -1 });
+        
+      console.log('📊 All vendors:', vendors.length);
+    }
+
+    console.log('📊 Final vendors response:', vendors);
     res.json({ vendors });
 
   } catch (error) {
@@ -358,10 +384,25 @@ router.get('/vendors', verifyToken, async (req, res) => {
 // Get available customers for vendor
 router.get('/customers', verifyToken, async (req, res) => {
   try {
-    const customers = await User.find({ isActive: true })
+    console.log('🔍 Fetching customers...');
+    
+    // First try with isActive filter
+    let customers = await User.find({ isActive: true })
       .select('firstName lastName username email preferences')
       .sort({ lastLogin: -1 });
 
+    console.log('📊 Customers with isActive filter:', customers.length);
+
+    // If no customers found, get all users
+    if (customers.length === 0) {
+      customers = await User.find({})
+        .select('firstName lastName username email preferences')
+        .sort({ lastLogin: -1 });
+        
+      console.log('📊 All customers:', customers.length);
+    }
+
+    console.log('📊 Final customers response:', customers);
     res.json({ customers });
 
   } catch (error) {
