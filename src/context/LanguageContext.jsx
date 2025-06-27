@@ -28,15 +28,44 @@ const translateText = async (text, fromLang, toLang) => {
   if (!text || fromLang === toLang) return text;
   
   try {
-    // Option 1: Use MyMemory (free, no API key required)
+    // Option 1: Use DeepL API (best quality, requires API key)
+    if (import.meta.env.VITE_DEEPL_API_KEY) {
+      try {
+        const deeplResponse = await fetch('https://api-free.deepl.com/v2/translate', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `DeepL-Auth-Key ${import.meta.env.VITE_DEEPL_API_KEY}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: new URLSearchParams({
+            text: text,
+            source_lang: fromLang.toUpperCase(),
+            target_lang: toLang.toUpperCase()
+          })
+        });
+        
+        if (deeplResponse.ok) {
+          const data = await deeplResponse.json();
+          if (data.translations && data.translations[0]) {
+            console.log('DeepL translation successful');
+            return data.translations[0].text;
+          }
+        }
+      } catch (deeplError) {
+        console.warn('DeepL translation failed, trying fallback:', deeplError);
+      }
+    }
+    
+    // Option 2: Use MyMemory (free, no API key required)
     const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`);
     const data = await response.json();
     
     if (data.responseData?.translatedText) {
+      console.log('MyMemory translation successful');
       return data.responseData.translatedText;
     }
     
-    // Option 2: Use LibreTranslate (free, no API key required)
+    // Option 3: Use LibreTranslate (free, no API key required)
     const libreResponse = await fetch('https://libretranslate.de/translate', {
       method: 'POST',
       headers: {
@@ -53,12 +82,13 @@ const translateText = async (text, fromLang, toLang) => {
     if (libreResponse.ok) {
       const libreData = await libreResponse.json();
       if (libreData.translatedText) {
+        console.log('LibreTranslate translation successful');
         return libreData.translatedText;
       }
     }
     
-    // If all free APIs fail, return original text
-    console.warn('Translation failed, returning original text');
+    // If all APIs fail, return original text
+    console.warn('All translation APIs failed, returning original text');
     return text;
     
   } catch (error) {
