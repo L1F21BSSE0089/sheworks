@@ -4,10 +4,11 @@ import apiService from "../services/api";
 import socketService from "../services/socket";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage, LANGUAGES } from "../context/LanguageContext";
+import deeplTranslationService from "../services/deeplTranslation";
 
 export default function Messages() {
   const { user, userType } = useAuth();
-  const { language: userLanguage, translate, translateMessage, translateBatch } = useLanguage();
+  const { language: userLanguage } = useLanguage();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -18,7 +19,7 @@ export default function Messages() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const [translatedMessages, setTranslatedMessages] = useState({});
-  const [translationError, setTranslationError] = useState(null);
+  const [translationLoading, setTranslationLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
   const [newRecipientEmail, setNewRecipientEmail] = useState("");
@@ -52,7 +53,11 @@ export default function Messages() {
     if (!selectedConversation) return;
     setLoading(true);
     apiService.getConversation(selectedConversation.participants.find(p => p.id !== user._id)?.id)
-      .then(res => setMessages(res.messages || []))
+      .then(res => {
+        setMessages(res.messages || []);
+        // Translate all messages when conversation loads
+        translateAllMessages(res.messages || [], selectedLanguage);
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, [selectedConversation, user]);
@@ -64,49 +69,65 @@ export default function Messages() {
         selectedConversation &&
         (message.sender.id === user._id || message.recipient.id === user._id)
       ) {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) => {
+          const newMessages = [...prev, message];
+          // Translate the new message
+          translateMessage(message, selectedLanguage);
+          return newMessages;
+        });
       }
     });
     return unsubscribe;
-  }, [selectedConversation, user]);
+  }, [selectedConversation, user, selectedLanguage]);
 
-  // Translate messages when user language changes
+  // Translate all messages when language changes
   useEffect(() => {
-    const translateAllMessages = async () => {
-      if (messages.length === 0) return;
-      
-      try {
-        setTranslationError(null);
-        const translatedResults = await translateBatch(messages, userLanguage);
-        
-        const newTranslatedMessages = {};
-        translatedResults.forEach(result => {
-          newTranslatedMessages[result.messageId] = result.translatedText;
-        });
-        
-        setTranslatedMessages(newTranslatedMessages);
-      } catch (error) {
-        console.error('Translation error:', error);
-        setTranslationError('Translation failed. Showing original messages.');
-      }
-    };
+    if (messages.length > 0) {
+      translateAllMessages(messages, selectedLanguage);
+    }
+  }, [selectedLanguage]);
 
-    translateAllMessages();
-  }, [messages, userLanguage, translateBatch]);
+  // Translate all messages using DeepL
+  const translateAllMessages = async (messagesToTranslate, targetLang) => {
+    if (messagesToTranslate.length === 0) return;
+    
+    setTranslationLoading(true);
+    try {
+      const translated = await deeplTranslationService.translateMessages(messagesToTranslate, targetLang);
+      setTranslatedMessages(translated);
+    } catch (error) {
+      console.error('Translation error:', error);
+    } finally {
+      setTranslationLoading(false);
+    }
+  };
+
+  // Translate a single message
+  const translateMessage = async (message, targetLang) => {
+    const messageId = message._id || message.id;
+    const originalText = message.content?.text || message.text || '';
+    const originalLang = message.content?.language || message.language || 'en';
+    
+    if (originalLang !== targetLang && originalText) {
+      try {
+        const translatedText = await deeplTranslationService.translateText(originalText, originalLang, targetLang);
+        setTranslatedMessages(prev => ({
+          ...prev,
+          [messageId]: translatedText
+        }));
+      } catch (error) {
+        console.error('Single message translation error:', error);
+      }
+    }
+  };
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, translatedMessages]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
-    
-    console.log('Sending message:', {
-      message: newMessage,
-      recipient: selectedConversation.participants.find(p => p.id !== user._id),
-      language: selectedLanguage
-    });
     
     setSending(true);
     setError(null);
@@ -114,20 +135,15 @@ export default function Messages() {
     
     try {
       // Send via API for persistence
-      console.log('Sending via API...');
       const apiResponse = await apiService.sendMessage({
         recipientId: recipient.id,
         content: newMessage,
         language: selectedLanguage
       });
-      console.log('API response:', apiResponse);
       
       // Send via socket for real-time
-      console.log('Sending via socket...');
       if (socketService && socketService.sendMessage) {
         socketService.sendMessage(recipient.id, newMessage, selectedLanguage, userType);
-      } else {
-        console.warn('Socket service not available');
       }
       
       // Add message to local state
@@ -138,7 +154,6 @@ export default function Messages() {
         createdAt: new Date().toISOString(),
       };
       
-      console.log('Adding message to local state:', newMessageObj);
       setMessages((prev) => [...prev, newMessageObj]);
       setNewMessage("");
       
@@ -163,7 +178,7 @@ export default function Messages() {
     // Translate the current message if it exists
     if (newMessage.trim()) {
       try {
-        const translated = await translate(newMessage, selectedLanguage, newLanguage, 'conversation');
+        const translated = await deeplTranslationService.translateText(newMessage, selectedLanguage, newLanguage);
         setNewMessage(translated);
       } catch (error) {
         console.error('Translation error:', error);
@@ -185,10 +200,16 @@ export default function Messages() {
 
   const getDisplayMessage = (message) => {
     const messageId = message._id || message.id;
-    if (message.content.language === userLanguage) {
-      return message.content.text;
+    const originalText = message.content?.text || message.text || '';
+    const originalLang = message.content?.language || message.language || 'en';
+    
+    // If message is in selected language, show original
+    if (originalLang === selectedLanguage) {
+      return originalText;
     }
-    return translatedMessages[messageId] || message.content.text;
+    
+    // Show translated version if available
+    return translatedMessages[messageId] || originalText;
   };
 
   // Handler for starting a new conversation
@@ -317,10 +338,8 @@ export default function Messages() {
                   <div className="text-center text-gray-400">No messages yet.</div>
                 ) : (
                   <>
-                    {translationError && (
-                      <div className="text-center text-orange-500 text-sm bg-orange-50 p-2 rounded-lg">
-                        {translationError}
-                      </div>
+                    {translationLoading && (
+                      <div className="text-center text-gray-400">Translating messages...</div>
                     )}
                     {messages.map((message, idx) => (
                       <div
@@ -367,7 +386,7 @@ export default function Messages() {
                       <button
                         onClick={() => setShowLanguageSelector(!showLanguageSelector)}
                         className="flex items-center space-x-1 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors"
-                        title="Select AI translation language"
+                        title="Select DeepL translation language"
                       >
                         <span>{getLanguageFlag(selectedLanguage)}</span>
                         <span>{getLanguageName(selectedLanguage)}</span>
@@ -388,7 +407,7 @@ export default function Messages() {
                 {showLanguageSelector && (
                   <div className="mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
                     <div className="mb-2 text-xs text-gray-600">
-                      Select language for AI-powered translation:
+                      Select language for DeepL translation:
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
                       {Object.entries(LANGUAGES).map(([code, lang]) => (

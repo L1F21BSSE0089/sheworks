@@ -23,105 +23,77 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// AI-Powered Translation Service
-const translateText = async (text, fromLang, toLang, context = 'general') => {
+// DeepL Translation Service
+const translateText = async (text, fromLang, toLang) => {
   if (!text || fromLang === toLang) return text;
   
   try {
-    // Try Google Translate API first (most reliable)
-    if (process.env.GOOGLE_TRANSLATE_API_KEY) {
-      const googleResponse = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${process.env.GOOGLE_TRANSLATE_API_KEY}`, {
+    // Use DeepL API for translation
+    if (process.env.DEEPL_API_KEY) {
+      const deeplResponse = await fetch('https://api-free.deepl.com/v2/translate', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Authorization': `DeepL-Auth-Key ${process.env.DEEPL_API_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: JSON.stringify({
-          q: text,
-          source: fromLang,
-          target: toLang,
-          format: 'text'
+        body: new URLSearchParams({
+          text: text,
+          source_lang: mapLanguageCode(fromLang),
+          target_lang: mapLanguageCode(toLang)
         })
       });
 
-      if (googleResponse.ok) {
-        const data = await googleResponse.json();
-        return data.data.translations[0].translatedText;
+      if (deeplResponse.ok) {
+        const data = await deeplResponse.json();
+        return data.translations?.[0]?.text || text;
       }
     }
 
-    // Try OpenAI for context-aware translation
-    if (process.env.OPENAI_API_KEY) {
-      const contextPrompt = `Translate the following ${context} text from ${fromLang} to ${toLang}. Maintain the original meaning and tone: "${text}"`;
-      
-      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a professional translator. Translate the given text accurately while preserving the original meaning, tone, and context. Respond only with the translated text, nothing else.`
-            },
-            {
-              role: 'user',
-              content: contextPrompt
-            }
-          ],
-          max_tokens: 150,
-          temperature: 0.3
-        })
-      });
-
-      if (openaiResponse.ok) {
-        const data = await openaiResponse.json();
-        return data.choices[0].message.content.trim();
-      }
-    }
-
-    // Fallback to LibreTranslate (free, open-source)
-    const libreResponse = await fetch('https://libretranslate.de/translate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        q: text,
-        source: fromLang,
-        target: toLang,
-        format: 'text'
-      })
-    });
-
-    if (libreResponse.ok) {
-      const data = await libreResponse.json();
-      return data.translatedText;
-    }
-
-    // Final fallback to MyMemory
+    // Fallback to MyMemory (free, no API key required)
     const myMemoryResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`);
     const myMemoryData = await myMemoryResponse.json();
     return myMemoryData.responseData?.translatedText || text;
 
   } catch (error) {
-    console.error('AI Translation error:', error);
-    return text; // Return original text if all translations fail
+    console.error('Translation error:', error);
+    return text; // Return original text if translation fails
   }
+};
+
+// Map language codes to DeepL format
+const mapLanguageCode = (code) => {
+  const languageMap = {
+    'en': 'EN',
+    'ur': 'UR', // DeepL doesn't support Urdu, will use fallback
+    'ar': 'AR',
+    'es': 'ES',
+    'fr': 'FR',
+    'de': 'DE',
+    'it': 'IT',
+    'pt': 'PT',
+    'ru': 'RU',
+    'zh': 'ZH',
+    'ja': 'JA',
+    'ko': 'KO',
+    'hi': 'HI', // DeepL doesn't support Hindi, will use fallback
+    'bn': 'BN', // DeepL doesn't support Bengali, will use fallback
+    'tr': 'TR',
+    'nl': 'NL'
+  };
+  
+  return languageMap[code] || 'EN';
 };
 
 // Translation endpoint
 router.post('/translate', verifyToken, async (req, res) => {
   try {
-    const { text, fromLang, toLang, context = 'general' } = req.body;
+    const { text, fromLang, toLang } = req.body;
     
     if (!text || !fromLang || !toLang) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const translatedText = await translateText(text, fromLang, toLang, context);
+    const translatedText = await translateText(text, fromLang, toLang);
     res.json({ translatedText, originalText: text, fromLang, toLang });
 
   } catch (error) {
@@ -146,8 +118,7 @@ router.post('/translate-batch', verifyToken, async (req, res) => {
         const translatedText = await translateText(
           message.content.text, 
           message.content.language, 
-          targetLang, 
-          'conversation'
+          targetLang
         );
         translatedMessages.push({
           messageId: message._id || message.id,
