@@ -11,6 +11,10 @@ require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Trust proxy for Railway deployment
+app.set('trust proxy', 1);
+
 const io = socketIo(server, {
   cors: {
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
@@ -37,7 +41,7 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/she-ecommerce', {
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/she-ecommerce', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
