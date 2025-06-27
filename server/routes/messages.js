@@ -340,17 +340,11 @@ router.get('/unread-count', verifyToken, async (req, res) => {
 // Get available vendors for customer
 router.get('/vendors', verifyToken, async (req, res) => {
   try {
-    const { userType } = req.user;
-    
-    if (userType !== 'customer') {
-      return res.status(403).json({ error: 'Only customers can view vendors' });
-    }
-
     const vendors = await Vendor.find({ 
       status: 'active',
       'verification.isVerified': true 
     })
-    .select('businessName businessInfo category languages rating')
+    .select('businessName businessInfo category languages rating email contactPerson')
     .sort({ 'rating.average': -1 });
 
     res.json({ vendors });
@@ -364,12 +358,6 @@ router.get('/vendors', verifyToken, async (req, res) => {
 // Get available customers for vendor
 router.get('/customers', verifyToken, async (req, res) => {
   try {
-    const { userType } = req.user;
-    
-    if (userType !== 'vendor') {
-      return res.status(403).json({ error: 'Only vendors can view customers' });
-    }
-
     const customers = await User.find({ isActive: true })
       .select('firstName lastName username email preferences')
       .sort({ lastLogin: -1 });

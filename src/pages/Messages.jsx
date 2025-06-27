@@ -46,6 +46,10 @@ export default function Messages() {
   const [newRecipientEmail, setNewRecipientEmail] = useState("");
   const [newMessageError, setNewMessageError] = useState(null);
   const [typingUsers, setTypingUsers] = useState(new Set());
+  const [allUsers, setAllUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   // Connect to socket on mount
   useEffect(() => {
@@ -87,6 +91,58 @@ export default function Messages() {
       })
       .finally(() => setLoading(false));
   }, [user]);
+
+  // Load all users and vendors for search
+  useEffect(() => {
+    const loadAllUsers = async () => {
+      try {
+        setSearchLoading(true);
+        const [customersRes, vendorsRes] = await Promise.all([
+          apiService.getCustomers(),
+          apiService.getVendors()
+        ]);
+        
+        const customers = (customersRes.users || customersRes || []).map(user => ({
+          id: user._id,
+          name: `${user.firstName} ${user.lastName}`.trim(),
+          email: user.email,
+          type: 'customer',
+          displayName: `${user.firstName} ${user.lastName}`.trim()
+        }));
+        
+        const vendors = (vendorsRes.vendors || vendorsRes || []).map(vendor => ({
+          id: vendor._id,
+          name: vendor.businessName || `${vendor.contactPerson?.firstName} ${vendor.contactPerson?.lastName}`.trim(),
+          email: vendor.email,
+          type: 'vendor',
+          displayName: vendor.businessName || `${vendor.contactPerson?.firstName} ${vendor.contactPerson?.lastName}`.trim()
+        }));
+        
+        setAllUsers([...customers, ...vendors]);
+        console.log('👥 Loaded users:', customers.length + vendors.length);
+      } catch (err) {
+        console.error('❌ Error loading users:', err);
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+    
+    loadAllUsers();
+  }, []);
+
+  // Handle clicking outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserDropdown && !event.target.closest('.user-dropdown-container')) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserDropdown]);
 
   // Fetch messages when conversation changes
   useEffect(() => {
@@ -565,13 +621,15 @@ export default function Messages() {
       {/* New Message Modal */}
       {showNewMessageModal && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm relative">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl font-bold"
               onClick={() => {
                 setShowNewMessageModal(false);
                 setNewRecipientEmail("");
                 setNewMessageError(null);
+                setSearchQuery("");
+                setShowUserDropdown(false);
               }}
               aria-label="Close"
             >
@@ -579,26 +637,82 @@ export default function Messages() {
             </button>
             <h3 className="text-lg font-semibold mb-4 text-gray-800">Start New Conversation</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Enter the email address of the person you want to chat with.
+              Search for a person or shop to start chatting with.
             </p>
             <div className="space-y-3">
-              <div>
+              <div className="relative user-dropdown-container">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Recipient Email
+                  Search Recipient
                 </label>
-                <input
-                  type="email"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="example@email.com"
-                  value={newRecipientEmail}
-                  onChange={e => setNewRecipientEmail(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleStartNewConversation();
-                    }
-                  }}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Search by name or shop name..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowUserDropdown(true);
+                      setNewRecipientEmail("");
+                    }}
+                    onFocus={() => setShowUserDropdown(true)}
+                  />
+                  {searchLoading && (
+                    <div className="absolute right-3 top-2">
+                      <FaSpinner className="animate-spin text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                
+                {/* User Dropdown */}
+                {showUserDropdown && searchQuery && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {allUsers
+                      .filter(user => 
+                        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        user.email.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .slice(0, 10) // Limit to 10 results
+                      .map((user) => (
+                        <button
+                          key={user.id}
+                          className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center space-x-3"
+                          onClick={() => {
+                            setNewRecipientEmail(user.email);
+                            setSearchQuery(user.name);
+                            setShowUserDropdown(false);
+                          }}
+                        >
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-sm">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{user.name}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                            <div className="text-xs text-gray-400 capitalize">{user.type}</div>
+                          </div>
+                        </button>
+                      ))}
+                    {allUsers.filter(user => 
+                      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+                    ).length === 0 && (
+                      <div className="px-4 py-3 text-gray-500 text-sm">
+                        No users found matching "{searchQuery}"
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+              
+              {newRecipientEmail && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="text-sm text-blue-800">
+                    <strong>Selected:</strong> {searchQuery}
+                  </div>
+                  <div className="text-xs text-blue-600">{newRecipientEmail}</div>
+                </div>
+              )}
               
               {newMessageError && (
                 <div className="text-red-500 text-sm bg-red-50 p-2 rounded-lg border border-red-200">
@@ -613,6 +727,8 @@ export default function Messages() {
                     setShowNewMessageModal(false);
                     setNewRecipientEmail("");
                     setNewMessageError(null);
+                    setSearchQuery("");
+                    setShowUserDropdown(false);
                   }}
                 >
                   Cancel

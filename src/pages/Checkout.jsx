@@ -114,19 +114,19 @@ export default function Checkout({ showToast }) {
       switch (paymentMethod) {
         case "card":
           // Use Braintree for card payments
-          if (!braintreeInstance) throw new Error('Payment form not ready');
-          const { nonce } = await braintreeInstance.requestPaymentMethod();
-          const result = await apiService.request('/orders/braintree/checkout', {
-            method: 'POST',
-            body: { paymentMethodNonce: nonce, amount: finalTotal },
-          });
-          if (!result.success) throw new Error(result.message || 'Payment failed');
-          paymentResult = {
-            method: 'card',
-            status: 'paid',
-            transactionId: result.transaction.id,
-            amount: finalTotal
-          };
+            if (!braintreeInstance) throw new Error('Payment form not ready');
+            const { nonce } = await braintreeInstance.requestPaymentMethod();
+            const result = await apiService.request('/orders/braintree/checkout', {
+              method: 'POST',
+              body: { paymentMethodNonce: nonce, amount: finalTotal },
+            });
+            if (!result.success) throw new Error(result.message || 'Payment failed');
+            paymentResult = {
+              method: 'card',
+              status: 'paid',
+              transactionId: result.transaction.id,
+              amount: finalTotal
+            };
           break;
 
         case "cod":
@@ -362,7 +362,7 @@ export default function Checkout({ showToast }) {
               >
                 Retry
               </button>
-            </div>
+          </div>
           ) : braintreeToken ? (
             <DropIn
               options={{ authorization: braintreeToken }}
