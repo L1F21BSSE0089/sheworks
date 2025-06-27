@@ -104,10 +104,10 @@ app.get('/api/test-products', async (req, res) => {
   }
 });
 
-// Simple seed endpoint
-app.get('/api/seed', async (req, res) => {
+// Comprehensive seed endpoint with multiple products
+app.get('/api/seed-full', async (req, res) => {
   try {
-    console.log('Seed endpoint called');
+    console.log('Comprehensive seed endpoint called');
     
     const Product = require('./models/Product');
     const Vendor = require('./models/Vendor');
@@ -115,48 +115,101 @@ app.get('/api/seed', async (req, res) => {
     // Check if products exist
     const existingProducts = await Product.countDocuments();
     if (existingProducts > 0) {
-      return res.json({ message: `${existingProducts} products already exist` });
+      return res.json({ message: `${existingProducts} products already exist. Skipping seed.` });
     }
     
     // Create vendor
     let vendor = await Vendor.findOne();
     if (!vendor) {
       vendor = new Vendor({
-        businessName: 'Test Store',
-        email: 'test@store.com',
-        password: 'test123',
+        businessName: 'Elegant Jewelry Store',
+        email: 'jewelry@store.com',
+        password: 'jewelry123',
         contactPerson: {
-          firstName: 'Test',
-          lastName: 'Vendor',
+          firstName: 'Elegant',
+          lastName: 'Jewelry',
           phone: '+1234567890'
         },
         businessInfo: {
           category: 'jewelry',
-          specialties: ['rings']
+          specialties: ['rings', 'necklaces', 'earrings', 'bracelets', 'watches']
         },
         status: 'active',
         verification: { isVerified: true }
       });
       await vendor.save();
+      console.log('Created vendor');
     }
     
-    // Create product
-    const product = new Product({
-      name: 'Test Ring',
-      description: 'A test ring product',
-      vendor: vendor._id,
-      category: 'rings',
-      price: { current: 99.99, original: 120.00, currency: 'USD' },
-      images: [{ url: 'ring.png', alt: 'Test Ring', isPrimary: true }],
-      inventory: { stock: 10, sku: 'TEST001', lowStockThreshold: 5 },
-      status: 'active',
-      featured: true
-    });
+    // Create multiple products
+    const products = [
+      {
+        name: 'Elegant Pearl Necklace',
+        description: 'Beautiful handcrafted pearl necklace perfect for any occasion',
+        vendor: vendor._id,
+        category: 'necklaces',
+        price: { current: 89.99, original: 120.00, currency: 'USD' },
+        images: [{ url: '/necklace.png', alt: 'Pearl Necklace', isPrimary: true }],
+        inventory: { stock: 15, sku: 'NECK001', lowStockThreshold: 5 },
+        status: 'active',
+        featured: true,
+        tags: ['pearl', 'elegant', 'necklace']
+      },
+      {
+        name: 'Diamond Stud Earrings',
+        description: 'Classic diamond stud earrings with brilliant cut stones',
+        vendor: vendor._id,
+        category: 'earrings',
+        price: { current: 299.99, original: 399.00, currency: 'USD' },
+        images: [{ url: '/earring.png', alt: 'Diamond Earrings', isPrimary: true }],
+        inventory: { stock: 8, sku: 'EARR001', lowStockThreshold: 3 },
+        status: 'active',
+        featured: true,
+        tags: ['diamond', 'classic', 'earrings']
+      },
+      {
+        name: 'Gold Wedding Ring',
+        description: 'Traditional 18k gold wedding ring with elegant design',
+        vendor: vendor._id,
+        category: 'rings',
+        price: { current: 599.99, original: 750.00, currency: 'USD' },
+        images: [{ url: '/ring.png', alt: 'Gold Ring', isPrimary: true }],
+        inventory: { stock: 12, sku: 'RING001', lowStockThreshold: 4 },
+        status: 'active',
+        featured: true,
+        tags: ['gold', 'wedding', 'ring']
+      },
+      {
+        name: 'Silver Bracelet',
+        description: 'Delicate silver bracelet with intricate patterns',
+        vendor: vendor._id,
+        category: 'bracelets',
+        price: { current: 45.99, original: 65.00, currency: 'USD' },
+        images: [{ url: '/bracelet.png', alt: 'Silver Bracelet', isPrimary: true }],
+        inventory: { stock: 20, sku: 'BRAC001', lowStockThreshold: 5 },
+        status: 'active',
+        featured: false,
+        tags: ['silver', 'delicate', 'bracelet']
+      },
+      {
+        name: 'Luxury Watch',
+        description: 'Premium luxury watch with leather strap',
+        vendor: vendor._id,
+        category: 'watches',
+        price: { current: 899.99, original: 1200.00, currency: 'USD' },
+        images: [{ url: '/watch.png', alt: 'Luxury Watch', isPrimary: true }],
+        inventory: { stock: 5, sku: 'WATCH001', lowStockThreshold: 2 },
+        status: 'active',
+        featured: true,
+        tags: ['luxury', 'watch', 'premium']
+      }
+    ];
     
-    await product.save();
-    res.json({ message: 'Test product created successfully!' });
+    await Product.insertMany(products);
+    console.log('Created', products.length, 'products');
+    res.json({ message: `${products.length} products created successfully!` });
   } catch (error) {
-    console.error('Seed error:', error);
+    console.error('Comprehensive seed error:', error);
     res.status(500).json({ error: 'Seed failed', details: error.message });
   }
 });
