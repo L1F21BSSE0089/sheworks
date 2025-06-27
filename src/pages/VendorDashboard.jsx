@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import apiService from "../services/api";
 import Spinner from "../components/Spinner";
+import { Link } from "react-router-dom";
 
 export default function VendorDashboard() {
   const { user, userType } = useAuth();
@@ -328,34 +329,62 @@ export default function VendorDashboard() {
       ) : products.length === 0 ? (
         <div className="text-gray-400">No products found.</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full mb-6 text-sm md:text-base">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="py-2">Name</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Stock</th>
-                <th>Sales</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map(product => (
-                <tr className="border-b" key={product._id}>
-                  <td className="py-2">{product.name}</td>
-                  <td>{product.category}</td>
-                  <td>₨{product.price.current}</td>
-                  <td>{product.inventory.stock}</td>
-                  <td>{product.salesCount || 0}</td>
-                  <td>
-                    <button className="text-primary underline mr-2" onClick={() => handleEdit(product)}>Edit</button>
-                    <button className="text-red-500 underline" onClick={() => handleDelete(product._id)}>Delete</button>
-                  </td>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-bold mb-4">Your Products</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-left border-b">
+                  <th className="py-2 px-2">Image</th>
+                  <th className="py-2 px-2">Name</th>
+                  <th className="py-2 px-2 hidden md:table-cell">Category</th>
+                  <th className="py-2 px-2">Price</th>
+                  <th className="py-2 px-2 hidden md:table-cell">Stock</th>
+                  <th className="py-2 px-2 hidden lg:table-cell">Sales</th>
+                  <th className="py-2 px-2">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {products.map(product => (
+                  <tr className="border-b hover:bg-gray-50 transition-colors" key={product._id}>
+                    <td className="py-2 px-2">
+                      <Link to={`/products/${product._id}`}>
+                        <img 
+                          src={product.images && product.images.length > 0 ? product.images[0].url : "/shop.webp"} 
+                          alt={product.name}
+                          className="w-12 h-12 object-cover rounded border hover:scale-105 transition-transform cursor-pointer"
+                        />
+                      </Link>
+                    </td>
+                    <td className="py-2 px-2">
+                      <Link 
+                        to={`/products/${product._id}`} 
+                        className="text-primary hover:text-primary-dark hover:underline cursor-pointer font-medium"
+                      >
+                        {product.name}
+                      </Link>
+                    </td>
+                    <td className="py-2 px-2 hidden md:table-cell">{product.category}</td>
+                    <td className="py-2 px-2">₨{product.price.current}</td>
+                    <td className="py-2 px-2 hidden md:table-cell">{product.inventory.stock}</td>
+                    <td className="py-2 px-2 hidden lg:table-cell">{product.salesCount || 0}</td>
+                    <td className="py-2 px-2">
+                      <div className="flex gap-2">
+                        <Link 
+                          to={`/products/${product._id}`}
+                          className="text-blue-600 hover:text-blue-800 underline text-sm"
+                        >
+                          View Details
+                        </Link>
+                        <button className="text-primary underline text-sm" onClick={() => handleEdit(product)}>Edit</button>
+                        <button className="text-red-500 underline text-sm" onClick={() => handleDelete(product._id)}>Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {showForm && (

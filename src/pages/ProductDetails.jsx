@@ -86,6 +86,18 @@ export default function ProductDetails({ showToast }) {
 
   return (
     <div className="px-4 md:px-8 py-8 max-w-5xl mx-auto">
+      {/* Back to Dashboard button for vendors */}
+      {user && user.role === 'vendor' && product.vendor === user._id && (
+        <div className="mb-6">
+          <Link 
+            to="/vendor-dashboard" 
+            className="inline-flex items-center gap-2 text-primary hover:text-primary-dark underline"
+          >
+            ← Back to Dashboard
+          </Link>
+        </div>
+      )}
+      
       <div className="flex flex-col md:flex-row gap-8">
         {/* Image Gallery Section */}
         <div className="md:w-1/2">
