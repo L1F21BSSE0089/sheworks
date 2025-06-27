@@ -104,6 +104,63 @@ app.get('/api/test-products', async (req, res) => {
   }
 });
 
+// Simple seed endpoint
+app.get('/api/seed', async (req, res) => {
+  try {
+    console.log('Seed endpoint called');
+    
+    const Product = require('./models/Product');
+    const Vendor = require('./models/Vendor');
+    
+    // Check if products exist
+    const existingProducts = await Product.countDocuments();
+    if (existingProducts > 0) {
+      return res.json({ message: `${existingProducts} products already exist` });
+    }
+    
+    // Create vendor
+    let vendor = await Vendor.findOne();
+    if (!vendor) {
+      vendor = new Vendor({
+        businessName: 'Test Store',
+        email: 'test@store.com',
+        password: 'test123',
+        contactPerson: {
+          firstName: 'Test',
+          lastName: 'Vendor',
+          phone: '+1234567890'
+        },
+        businessInfo: {
+          category: 'jewelry',
+          specialties: ['rings']
+        },
+        status: 'active',
+        verification: { isVerified: true }
+      });
+      await vendor.save();
+    }
+    
+    // Create product
+    const product = new Product({
+      name: 'Test Ring',
+      description: 'A test ring product',
+      vendor: vendor._id,
+      category: 'rings',
+      price: { current: 99.99, original: 120.00, currency: 'USD' },
+      images: [{ url: 'ring.png', alt: 'Test Ring', isPrimary: true }],
+      inventory: { stock: 10, sku: 'TEST001', lowStockThreshold: 5 },
+      status: 'active',
+      featured: true
+    });
+    
+    await product.save();
+    res.json({ message: 'Test product created successfully!' });
+  } catch (error) {
+    console.error('Seed error:', error);
+    res.status(500).json({ error: 'Seed failed', details: error.message });
+  }
+});
+
 // Socket.io connection handling
 const connectedUsers = new Map();
 const connectedVendors = new Map();
