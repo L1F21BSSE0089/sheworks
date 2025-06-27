@@ -129,73 +129,55 @@ export default function Home({ showToast }) {
     search: debouncedSearch
   }), [filters, debouncedSearch]);
 
+  // Optimized product loading - load immediately with skeleton
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    // Check for cached products
-    const cached = localStorage.getItem('cachedProducts');
-    const cacheTime = localStorage.getItem('cachedProductsTime');
-    const now = Date.now();
-    if (cached && cacheTime && now - parseInt(cacheTime) < 5 * 60 * 1000) {
-      // Use cached products if cache is fresh (5 min)
-      const productsArray = JSON.parse(cached);
-      setProducts(productsArray);
-      setLoading(false);
-      // Prefetch in background
-      prefetchProducts();
-      return;
-    }
-
-    // Otherwise, fetch from API
-    fetchAndCacheProducts();
-  }, []);
-
-  // Prefetch products in the background
-  const prefetchProducts = async () => {
-    try {
-      const res = await apiService.getProducts();
-      let productsArray = [];
-      if (Array.isArray(res)) productsArray = res;
-      else if (res && Array.isArray(res.products)) productsArray = res.products;
-      else if (res && res.data && Array.isArray(res.data)) productsArray = res.data;
-      else return;
-      localStorage.setItem('cachedProducts', JSON.stringify(productsArray));
-      localStorage.setItem('cachedProductsTime', Date.now().toString());
-    } catch {}
-  };
-
-  // Fetch and cache products
-  const fetchAndCacheProducts = async () => {
-    try {
-      const res = await apiService.getProducts();
-      let productsArray = [];
-      if (Array.isArray(res)) productsArray = res;
-      else if (res && Array.isArray(res.products)) productsArray = res.products;
-      else if (res && res.data && Array.isArray(res.data)) productsArray = res.data;
-      else throw new Error('Invalid response format from server');
-      setProducts(productsArray);
-      localStorage.setItem('cachedProducts', JSON.stringify(productsArray));
-      localStorage.setItem('cachedProductsTime', Date.now().toString());
-      // Only calculate tags and price range if we have products
-      if (productsArray.length > 0) {
-        const tags = new Set();
-        let minPrice = Infinity, maxPrice = 0;
-        productsArray.forEach(p => {
-          (p.tags || []).forEach(tag => tags.add(tag));
-          if (p.price?.current < minPrice) minPrice = p.price.current;
-          if (p.price?.current > maxPrice) maxPrice = p.price.current;
-        });
-        setAllTags(Array.from(tags));
-        setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
-        setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
+    const loadProducts = async () => {
+      try {
+        const res = await apiService.getProducts();
+        console.log('Products loaded:', res.products?.length || 0);
+        
+        // Handle different response structures
+        let productsArray = [];
+        if (Array.isArray(res)) {
+          productsArray = res;
+        } else if (res && Array.isArray(res.products)) {
+          productsArray = res.products;
+        } else if (res && res.data && Array.isArray(res.data)) {
+          productsArray = res.data;
+        } else {
+          console.error('Unexpected response structure:', res);
+          setError('Invalid response format from server');
+          return;
+        }
+        
+        setProducts(productsArray);
+        
+        // Only calculate tags and price range if we have products
+        if (productsArray.length > 0) {
+          const tags = new Set();
+          let minPrice = Infinity, maxPrice = 0;
+          
+          productsArray.forEach(p => {
+            (p.tags || []).forEach(tag => tags.add(tag));
+            if (p.price?.current < minPrice) minPrice = p.price.current;
+            if (p.price?.current > maxPrice) maxPrice = p.price.current;
+          });
+          
+          setAllTags(Array.from(tags));
+          setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
+          setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
+        }
+      } catch (err) {
+        console.error('Error loading products:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    // Start loading immediately
+    loadProducts();
+  }, []);
 
   const loadMore = useCallback(() => {
     // Simplified for now - just show all products
@@ -232,9 +214,66 @@ export default function Home({ showToast }) {
     }
   }, [isInWishlist, removeFromWishlist, addToWishlist, showToast]);
 
-  // Filtered and sorted products - optimized with useMemo
+  // Filtered and sorted products - ultra optimized with useMemo
   const filtered = useMemo(() => {
-    return sortProducts(filterProducts(products, effectiveFilters), sort);
+    if (!products.length) return [];
+    
+    let result = products;
+    
+    // Apply filters efficiently
+    if (effectiveFilters.search) {
+      const searchLower = effectiveFilters.search.toLowerCase();
+      result = result.filter(p => 
+        p.name?.toLowerCase().includes(searchLower) ||
+        p.description?.toLowerCase().includes(searchLower) ||
+        p.category?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    if (effectiveFilters.categories.length > 0) {
+      result = result.filter(p => effectiveFilters.categories.includes(p.category));
+    }
+    
+    if (effectiveFilters.tags.length > 0) {
+      result = result.filter(p => 
+        p.tags?.some(tag => effectiveFilters.tags.includes(tag))
+      );
+    }
+    
+    if (effectiveFilters.rating > 0) {
+      result = result.filter(p => (p.rating?.average || 0) >= effectiveFilters.rating);
+    }
+    
+    if (effectiveFilters.discount > 0) {
+      result = result.filter(p => (p.discount?.percentage || 0) >= effectiveFilters.discount);
+    }
+    
+    if (effectiveFilters.price[0] > 0 || effectiveFilters.price[1] < Infinity) {
+      result = result.filter(p => {
+        const price = p.price?.current || 0;
+        return price >= effectiveFilters.price[0] && price <= effectiveFilters.price[1];
+      });
+    }
+    
+    // Apply sorting
+    if (sort) {
+      result = [...result].sort((a, b) => {
+        switch (sort) {
+          case 'price-asc':
+            return (a.price?.current || 0) - (b.price?.current || 0);
+          case 'price-desc':
+            return (b.price?.current || 0) - (a.price?.current || 0);
+          case 'rating-desc':
+            return (b.rating?.average || 0) - (a.rating?.average || 0);
+          case 'newest':
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          default:
+            return 0;
+        }
+      });
+    }
+    
+    return result;
   }, [products, effectiveFilters, sort]);
   
   // Use filtered products for recommendations to avoid extra API calls
@@ -279,7 +318,7 @@ export default function Home({ showToast }) {
     });
   };
 
-  // Loading skeleton component
+  // Loading skeleton component - shows immediately
   const ProductSkeleton = () => (
     <div className="bg-white rounded-lg shadow p-4 w-full animate-pulse">
       <div className="bg-gray-300 rounded h-32 w-full mb-2"></div>
