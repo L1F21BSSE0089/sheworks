@@ -349,4 +349,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built with ❤️ for the future of e-commerce**
 
-![SHE Logo](https://via.placeholder.com/200x80/FF6B6B/FFFFFF?text=SHE) 
+![SHE Logo](https://via.placeholder.com/200x80/FF6B6B/FFFFFF?text=SHE)
+
+*Last updated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")* 
