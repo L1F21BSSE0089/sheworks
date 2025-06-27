@@ -96,8 +96,15 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       const response = await apiService.googleSignup(googleData);
-      setUser(response.user);
-      setUserType('customer');
+      
+      if (googleData.userType === 'vendor') {
+        setUser(response.vendor);
+        setUserType('vendor');
+      } else {
+        setUser(response.user);
+        setUserType('customer');
+      }
+      
       apiService.setToken(response.token);
       return response;
     } catch (error) {

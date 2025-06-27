@@ -298,51 +298,97 @@ router.post('/google', async (req, res) => {
   try {
     console.log('Google OAuth attempt:', req.body);
     
-    const { email, name, picture, googleId } = req.body;
+    const { email, name, picture, googleId, userType = 'customer' } = req.body;
     
     if (!email || !name) {
       return res.status(400).json({ error: 'Email and name are required' });
     }
 
-    // Check if user already exists
-    let user = await User.findOne({ email });
+    if (userType === 'vendor') {
+      // Handle vendor Google signup
+      let vendor = await Vendor.findOne({ email });
 
-    if (!user) {
-      // Create new user from Google data
-      const [firstName, ...lastNameParts] = name.split(' ');
-      const lastName = lastNameParts.join(' ') || '';
-      
-      user = new User({
-        username: email.split('@')[0] + Math.random().toString(36).substr(2, 5),
-        email,
-        firstName,
-        lastName,
-        password: 'google-auth-' + Math.random().toString(36).substr(2, 15), // Random password for Google users
-        avatar: picture,
-        isVerified: true, // Google accounts are pre-verified
-        googleId: googleId
-      });
+      if (!vendor) {
+        // Create new vendor from Google data
+        const [firstName, ...lastNameParts] = name.split(' ');
+        const lastName = lastNameParts.join(' ') || '';
+        
+        vendor = new Vendor({
+          businessName: name + ' Store',
+          email,
+          contactPerson: {
+            firstName,
+            lastName,
+            phone: 'Not provided'
+          },
+          password: 'google-auth-' + Math.random().toString(36).substr(2, 15), // Random password for Google users
+          businessInfo: {
+            category: 'other'
+          },
+          status: 'active',
+          verification: { isVerified: true },
+          googleId: googleId
+        });
 
-      await user.save();
-      console.log('Google user created:', user._id);
-    }
-
-    // Generate token
-    const token = generateToken(user._id, 'customer');
-
-    res.json({
-      message: 'Google authentication successful',
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        fullName: user.fullName,
-        avatar: user.avatar
+        await vendor.save();
+        console.log('Google vendor created:', vendor._id);
       }
-    });
+
+      // Generate token
+      const token = generateToken(vendor._id, 'vendor');
+
+      res.json({
+        message: 'Google vendor authentication successful',
+        token,
+        vendor: {
+          id: vendor._id,
+          businessName: vendor.businessName,
+          email: vendor.email,
+          contactPerson: vendor.contactPerson,
+          status: vendor.status
+        }
+      });
+    } else {
+      // Handle customer Google signup (existing code)
+      let user = await User.findOne({ email });
+
+      if (!user) {
+        // Create new user from Google data
+        const [firstName, ...lastNameParts] = name.split(' ');
+        const lastName = lastNameParts.join(' ') || '';
+        
+        user = new User({
+          username: email.split('@')[0] + Math.random().toString(36).substr(2, 5),
+          email,
+          firstName,
+          lastName,
+          password: 'google-auth-' + Math.random().toString(36).substr(2, 15), // Random password for Google users
+          avatar: picture,
+          isVerified: true, // Google accounts are pre-verified
+          googleId: googleId
+        });
+
+        await user.save();
+        console.log('Google user created:', user._id);
+      }
+
+      // Generate token
+      const token = generateToken(user._id, 'customer');
+
+      res.json({
+        message: 'Google authentication successful',
+        token,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          fullName: user.fullName,
+          avatar: user.avatar
+        }
+      });
+    }
 
   } catch (error) {
     console.error('Google OAuth error:', error);

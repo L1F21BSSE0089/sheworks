@@ -86,7 +86,8 @@ export default function Signup() {
         email: payload.email,
         name: payload.name,
         picture: payload.picture,
-        googleId: payload.sub
+        googleId: payload.sub,
+        userType: userType
       };
 
       await googleSignup(googleData);

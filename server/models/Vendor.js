@@ -15,9 +15,15 @@ const vendorSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
+  googleId: {
+    type: String,
+    sparse: true
+  },
   password: {
     type: String,
-    required: true,
+    required: function() {
+      return !this.googleId; // Password not required if vendor has Google ID
+    },
     minlength: 6
   },
   contactPerson: {
@@ -151,6 +157,7 @@ vendorSchema.pre('save', async function(next) {
 
 // Compare password method
 vendorSchema.methods.comparePassword = async function(candidatePassword) {
+  if (!this.password) return false; // Google vendors don't have passwords
   return bcrypt.compare(candidatePassword, this.password);
 };
 
