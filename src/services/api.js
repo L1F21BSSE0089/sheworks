@@ -1,4 +1,5 @@
-const API_URL = (import.meta.env.VITE_API_URL || 'https://sheworks-production.up.railway.app') + '/api';
+const baseURL = import.meta.env.VITE_API_URL || 'https://sheworks-production.up.railway.app';
+const API_URL = baseURL.endsWith('/api') ? baseURL : baseURL + '/api';
 
 class ApiService {
   constructor() {
