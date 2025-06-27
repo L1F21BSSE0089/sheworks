@@ -101,30 +101,50 @@ export default function Messages() {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
+    
+    console.log('Sending message:', {
+      message: newMessage,
+      recipient: selectedConversation.participants.find(p => p.id !== user._id),
+      language: selectedLanguage
+    });
+    
     setSending(true);
     setError(null);
     const recipient = selectedConversation.participants.find(p => p.id !== user._id);
+    
     try {
       // Send via API for persistence
-      await apiService.sendMessage({
+      console.log('Sending via API...');
+      const apiResponse = await apiService.sendMessage({
         recipientId: recipient.id,
         content: newMessage,
         language: selectedLanguage
       });
+      console.log('API response:', apiResponse);
+      
       // Send via socket for real-time
-      socketService.sendMessage(recipient.id, newMessage, selectedLanguage, userType);
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: { id: user._id, type: userType },
-          recipient: { id: recipient.id, type: recipient.type },
-          content: { text: newMessage, language: selectedLanguage },
-          createdAt: new Date().toISOString(),
-        }
-      ]);
+      console.log('Sending via socket...');
+      if (socketService && socketService.sendMessage) {
+        socketService.sendMessage(recipient.id, newMessage, selectedLanguage, userType);
+      } else {
+        console.warn('Socket service not available');
+      }
+      
+      // Add message to local state
+      const newMessageObj = {
+        sender: { id: user._id, type: userType },
+        recipient: { id: recipient.id, type: recipient.type },
+        content: { text: newMessage, language: selectedLanguage },
+        createdAt: new Date().toISOString(),
+      };
+      
+      console.log('Adding message to local state:', newMessageObj);
+      setMessages((prev) => [...prev, newMessageObj]);
       setNewMessage("");
+      
     } catch (err) {
-      setError("Failed to send message");
+      console.error('Error sending message:', err);
+      setError(`Failed to send message: ${err.message}`);
     } finally {
       setSending(false);
     }
