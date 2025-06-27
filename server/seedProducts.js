@@ -121,9 +121,14 @@ async function seedProducts() {
         businessName: 'Sample Jewelry Store',
         email: 'vendor@sample.com',
         password: 'vendor123',
-        firstName: 'Sample',
-        lastName: 'Vendor',
-        phone: '+1234567890',
+        contactPerson: {
+          firstName: 'Sample',
+          lastName: 'Vendor',
+          phone: '+1234567890'
+        },
+        businessInfo: {
+          category: 'jewelry'
+        },
         address: {
           street: '123 Jewelry St',
           city: 'Sample City',
@@ -131,8 +136,8 @@ async function seedProducts() {
           zipCode: '12345',
           country: 'USA'
         },
-        isActive: true,
-        isVerified: true
+        status: 'active',
+        verification: { isVerified: true }
       });
       await sampleVendor.save();
       console.log('Sample vendor created');
@@ -146,9 +151,14 @@ async function seedProducts() {
         businessName: 'Sample Jewelry Store',
         email: 'vendor@sample.com',
         password: 'vendor123',
-        firstName: 'Sample',
-        lastName: 'Vendor',
-        phone: '+1234567890',
+        contactPerson: {
+          firstName: 'Sample',
+          lastName: 'Vendor',
+          phone: '+1234567890'
+        },
+        businessInfo: {
+          category: 'jewelry'
+        },
         address: {
           street: '123 Jewelry St',
           city: 'Sample City',
@@ -156,8 +166,8 @@ async function seedProducts() {
           zipCode: '12345',
           country: 'USA'
         },
-        isActive: true,
-        isVerified: true
+        status: 'active',
+        verification: { isVerified: true }
       });
       await vendor.save();
     }
