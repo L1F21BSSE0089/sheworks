@@ -136,13 +136,36 @@ export default function Home({ showToast }) {
     // Use simple getProducts API for now to fix the issue
     apiService.getProducts()
       .then(res => {
-        console.log('Products loaded:', res.products?.length || 0);
-        setProducts(res.products || []);
+        console.log('=== PRODUCTS API RESPONSE ===');
+        console.log('Full response:', res);
+        console.log('Response type:', typeof res);
+        console.log('Response keys:', Object.keys(res || {}));
+        
+        // Handle different response structures
+        let productsArray = [];
+        if (Array.isArray(res)) {
+          // Direct array response
+          productsArray = res;
+        } else if (res && Array.isArray(res.products)) {
+          // Object with products array
+          productsArray = res.products;
+        } else if (res && res.data && Array.isArray(res.data)) {
+          // Object with data array
+          productsArray = res.data;
+        } else {
+          console.error('Unexpected response structure:', res);
+          setError('Invalid response format from server');
+          return;
+        }
+        
+        console.log('Products array length:', productsArray.length);
+        console.log('First product:', productsArray[0]);
+        setProducts(productsArray);
         
         // Collect all tags and price range
         const tags = new Set();
         let minPrice = Infinity, maxPrice = 0;
-        (res.products || []).forEach(p => {
+        productsArray.forEach(p => {
           (p.tags || []).forEach(tag => tags.add(tag));
           if (p.price?.current < minPrice) minPrice = p.price.current;
           if (p.price?.current > maxPrice) maxPrice = p.price.current;
