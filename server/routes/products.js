@@ -95,12 +95,16 @@ router.delete('/:id', verifyToken, async (req, res) => {
 // Get recommended products for a user (simple: most popular)
 router.get('/recommendations', async (req, res) => {
   try {
-    // First check if there are any orders
+    console.log('Starting recommendations request...');
+    
+    // First check if we have any orders
     const orderCount = await Order.countDocuments();
+    console.log('Order count:', orderCount);
     
     let products = [];
     
     if (orderCount > 0) {
+      console.log('Processing orders for recommendations...');
       // Aggregate product order counts
       const popular = await Order.aggregate([
         { $unwind: "$items" },
@@ -109,21 +113,27 @@ router.get('/recommendations', async (req, res) => {
         { $limit: 8 }
       ]);
       
+      console.log('Popular products from orders:', popular);
       const ids = popular.map(p => p._id);
       if (ids.length > 0) {
         products = await Product.find({ _id: { $in: ids }, isActive: true }).populate('vendor', 'businessName');
+        console.log('Found products from orders:', products.length);
       }
     }
     
     // If no products from orders, get some active products
     if (products.length === 0) {
+      console.log('Getting fallback products...');
       products = await Product.find({ isActive: true }).populate('vendor', 'businessName').limit(8);
+      console.log('Found fallback products:', products.length);
     }
     
+    console.log('Sending recommendations response with', products.length, 'products');
     res.json({ products });
   } catch (error) {
-    console.error('Recommendations error:', error);
-    res.status(500).json({ error: 'Failed to fetch recommendations' });
+    console.error('Recommendations error details:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to fetch recommendations', details: error.message });
   }
 });
 
