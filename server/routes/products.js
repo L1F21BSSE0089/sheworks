@@ -190,9 +190,15 @@ router.get('/seed', async (req, res) => {
         businessName: 'Sample Jewelry Store',
         email: 'vendor@sample.com',
         password: 'vendor123',
-        firstName: 'Sample',
-        lastName: 'Vendor',
-        phone: '+1234567890',
+        contactPerson: {
+          firstName: 'Sample',
+          lastName: 'Vendor',
+          phone: '+1234567890'
+        },
+        businessInfo: {
+          category: 'jewelry',
+          specialties: ['rings', 'necklaces', 'earrings', 'bracelets', 'watches']
+        },
         address: {
           street: '123 Jewelry St',
           city: 'Sample City',
@@ -200,8 +206,10 @@ router.get('/seed', async (req, res) => {
           zipCode: '12345',
           country: 'USA'
         },
-        isActive: true,
-        isVerified: true
+        status: 'active',
+        verification: {
+          isVerified: true
+        }
       });
       await vendor.save();
       console.log('Created sample vendor');
@@ -295,9 +303,15 @@ router.post('/seed', async (req, res) => {
         businessName: 'Sample Jewelry Store',
         email: 'vendor@sample.com',
         password: 'vendor123',
-        firstName: 'Sample',
-        lastName: 'Vendor',
-        phone: '+1234567890',
+        contactPerson: {
+          firstName: 'Sample',
+          lastName: 'Vendor',
+          phone: '+1234567890'
+        },
+        businessInfo: {
+          category: 'jewelry',
+          specialties: ['rings', 'necklaces', 'earrings', 'bracelets', 'watches']
+        },
         address: {
           street: '123 Jewelry St',
           city: 'Sample City',
@@ -305,8 +319,10 @@ router.post('/seed', async (req, res) => {
           zipCode: '12345',
           country: 'USA'
         },
-        isActive: true,
-        isVerified: true
+        status: 'active',
+        verification: {
+          isVerified: true
+        }
       });
       await vendor.save();
     }
