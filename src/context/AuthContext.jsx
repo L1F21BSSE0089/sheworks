@@ -37,6 +37,9 @@ export const AuthProvider = ({ children }) => {
       } else if (response.vendor) {
         setUser(response.vendor);
         setUserType('vendor');
+      } else if (response.admin) {
+        setUser(response.admin);
+        setUserType('admin');
       }
     } catch (error) {
       console.error('Auth check failed:', error);
