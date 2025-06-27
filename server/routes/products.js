@@ -720,4 +720,69 @@ router.get('/debug/all', async (req, res) => {
   }
 });
 
+// Get vendor's own products (vendor only)
+router.get('/vendor/my', verifyToken, async (req, res) => {
+  try {
+    console.log('=== GET VENDOR PRODUCTS START ===');
+    
+    if (req.user.userType !== 'vendor') {
+      return res.status(403).json({ error: 'Only vendors can access this endpoint' });
+    }
+    
+    const { page = 1, limit = 50, sort } = req.query;
+    
+    // Build query for vendor's products only
+    const query = { vendor: req.user.userId };
+    
+    // Simplified sort for faster queries
+    let sortOption = { createdAt: -1 }; // Default to newest first
+    if (sort === 'price-asc') sortOption = { 'price.current': 1 };
+    else if (sort === 'price-desc') sortOption = { 'price.current': -1 };
+    else if (sort === 'rating-desc') sortOption = { 'rating.average': -1 };
+    
+    const skip = (page - 1) * limit;
+    
+    // Ultra-optimized query for vendor products
+    const products = await Product.find(query)
+      .select('name description category price images rating tags isActive createdAt inventory')
+      .sort(sortOption)
+      .limit(parseInt(limit))
+      .skip(skip)
+      .lean() // Use lean() for maximum speed
+      .exec(); // Explicit execution for better performance
+      
+    const total = await Product.countDocuments(query).exec();
+    
+    console.log('Found vendor products:', products.length, 'of', total);
+    console.log('=== GET VENDOR PRODUCTS SUCCESS ===');
+    
+    // Add cache headers for better performance
+    res.set('Cache-Control', 'private, max-age=300'); // Cache for 5 minutes (private for vendor)
+    
+    res.json({ 
+      products,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (err) {
+    console.error('=== GET VENDOR PRODUCTS ERROR ===');
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Simple health check for products service
+router.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    service: 'products',
+    timestamp: new Date().toISOString(),
+    message: 'Products service is running'
+  });
+});
+
 module.exports = router; 
