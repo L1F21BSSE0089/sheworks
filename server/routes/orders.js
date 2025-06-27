@@ -11,21 +11,22 @@ const serverModule = require('../server');
 const connectedVendors = serverModule.connectedVendors || new Map();
 const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
+const { core, orders } = paypal;
 
 const router = express.Router();
 
 // PayPal configuration
-let environment = new paypal.core.SandboxEnvironment(
+let environment = new core.SandboxEnvironment(
   process.env.PAYPAL_CLIENT_ID,
   process.env.PAYPAL_CLIENT_SECRET
 );
 if (process.env.NODE_ENV === 'production') {
-  environment = new paypal.core.LiveEnvironment(
+  environment = new core.LiveEnvironment(
     process.env.PAYPAL_CLIENT_ID,
     process.env.PAYPAL_CLIENT_SECRET
   );
 }
-const paypalClient = new paypal.core.PayPalHttpClient(environment);
+const paypalClient = new core.PayPalHttpClient(environment);
 
 // Middleware to verify token
 const verifyToken = (req, res, next) => {
@@ -201,7 +202,7 @@ router.post('/create-paypal-order', async (req, res) => {
     const { amount, currency = 'PKR', items } = req.body;
     if (!amount) return res.status(400).json({ error: 'Amount is required' });
 
-    const request = new paypal.orders.OrdersCreateRequest();
+    const request = new orders.OrdersCreateRequest();
     request.prefer("return=representation");
     request.requestBody({
       intent: 'CAPTURE',
@@ -249,7 +250,7 @@ router.post('/capture-paypal-payment', async (req, res) => {
     const { orderID } = req.body;
     if (!orderID) return res.status(400).json({ error: 'Order ID is required' });
 
-    const request = new paypal.orders.OrdersCaptureRequest(orderID);
+    const request = new orders.OrdersCaptureRequest(orderID);
     const capture = await paypalClient.execute(request);
     
     res.json({ 
