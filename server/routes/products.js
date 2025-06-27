@@ -49,17 +49,46 @@ router.post('/', verifyToken, [
   body('price.current').isNumeric(),
   body('inventory.stock').isInt({ min: 0 })
 ], async (req, res) => {
-  if (req.user.userType !== 'vendor') return res.status(403).json({ error: 'Only vendors can create products' });
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   try {
+    console.log('=== PRODUCT CREATION START ===');
+    console.log('User:', req.user);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
+    if (req.user.userType !== 'vendor') {
+      console.log('Access denied: User is not a vendor');
+      return res.status(403).json({ error: 'Only vendors can create products' });
+    }
+    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
+      return res.status(400).json({ errors: errors.array() });
+    }
+    
+    console.log('Looking for vendor with ID:', req.user.userId);
     const vendor = await Vendor.findById(req.user.userId);
-    if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
+    if (!vendor) {
+      console.log('Vendor not found');
+      return res.status(404).json({ error: 'Vendor not found' });
+    }
+    
+    console.log('Vendor found:', vendor.businessName);
+    console.log('Creating product with data:', { ...req.body, vendor: vendor._id });
+    
     const product = new Product({ ...req.body, vendor: vendor._id });
     await product.save();
+    
+    console.log('Product created successfully:', product._id);
+    console.log('=== PRODUCT CREATION SUCCESS ===');
+    
     res.status(201).json({ product });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('=== PRODUCT CREATION ERROR ===');
+    console.error('Error details:', err);
+    console.error('Error message:', err.message);
+    console.error('Error stack:', err.stack);
+    console.error('=== END ERROR ===');
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 

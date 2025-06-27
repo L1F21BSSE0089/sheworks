@@ -63,7 +63,7 @@ export default function VendorDashboard() {
     if (!window.confirm("Delete this product?")) return;
     setFormLoading(true);
     try {
-      await apiService.request(`/products/${id}`, { method: "DELETE" });
+      await apiService.deleteProduct(id);
       setProducts(products => products.filter(p => p._id !== id));
     } catch (err) {
       setFormError(err.message);
@@ -77,17 +77,17 @@ export default function VendorDashboard() {
     setFormLoading(true);
     setFormError(null);
     try {
+      // Ensure there's at least one image
+      const productData = {
+        ...form,
+        images: form.images.length > 0 ? form.images : [{ url: '/shop.webp', alt: form.name, isPrimary: true }]
+      };
+      
       if (editingId) {
-        const res = await apiService.request(`/products/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(form),
-        });
+        const res = await apiService.updateProduct(editingId, productData);
         setProducts(products => products.map(p => p._id === editingId ? res.product : p));
       } else {
-        const res = await apiService.request("/products", {
-          method: "POST",
-          body: JSON.stringify(form),
-        });
+        const res = await apiService.createProduct(productData);
         setProducts(products => [...products, res.product]);
       }
       setShowForm(false);

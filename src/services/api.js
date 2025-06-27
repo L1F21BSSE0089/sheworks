@@ -191,6 +191,26 @@ class ApiService {
     return this.request(`/products/${id}`);
   }
 
+  async createProduct(productData) {
+    return this.request('/products', {
+      method: 'POST',
+      body: JSON.stringify(productData),
+    });
+  }
+
+  async updateProduct(id, productData) {
+    return this.request(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(productData),
+    });
+  }
+
+  async deleteProduct(id) {
+    return this.request(`/products/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Order APIs
   async placeOrder(orderData) {
     return this.request('/orders', {
