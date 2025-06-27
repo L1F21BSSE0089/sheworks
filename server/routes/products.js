@@ -170,7 +170,116 @@ router.post('/:id/reviews', verifyToken, [
   }
 });
 
-// Seed sample products (for development/testing)
+// Seed sample products (for development/testing) - GET endpoint for browser access
+router.get('/seed', async (req, res) => {
+  try {
+    console.log('Starting seed process...');
+    
+    // Check if products already exist
+    const existingProducts = await Product.countDocuments();
+    if (existingProducts > 0) {
+      return res.json({ message: `${existingProducts} products already exist. Skipping seed.` });
+    }
+
+    console.log('No existing products found, creating vendor...');
+    
+    // Get or create a vendor
+    let vendor = await Vendor.findOne();
+    if (!vendor) {
+      vendor = new Vendor({
+        businessName: 'Sample Jewelry Store',
+        email: 'vendor@sample.com',
+        password: 'vendor123',
+        firstName: 'Sample',
+        lastName: 'Vendor',
+        phone: '+1234567890',
+        address: {
+          street: '123 Jewelry St',
+          city: 'Sample City',
+          state: 'Sample State',
+          zipCode: '12345',
+          country: 'USA'
+        },
+        isActive: true,
+        isVerified: true
+      });
+      await vendor.save();
+      console.log('Created sample vendor');
+    } else {
+      console.log('Using existing vendor');
+    }
+
+    console.log('Creating sample products...');
+    
+    const sampleProducts = [
+      {
+        name: 'Elegant Pearl Necklace',
+        description: 'Beautiful handcrafted pearl necklace perfect for any occasion',
+        category: 'Necklaces',
+        price: { current: 89.99, original: 120.00 },
+        images: ['necklace.png'],
+        inventory: { stock: 15, sku: 'NECK001' },
+        isActive: true,
+        isFeatured: true,
+        vendor: vendor._id
+      },
+      {
+        name: 'Diamond Stud Earrings',
+        description: 'Classic diamond stud earrings with brilliant cut stones',
+        category: 'Earrings',
+        price: { current: 299.99, original: 399.00 },
+        images: ['earring.png'],
+        inventory: { stock: 8, sku: 'EARR001' },
+        isActive: true,
+        isFeatured: true,
+        vendor: vendor._id
+      },
+      {
+        name: 'Gold Wedding Ring',
+        description: 'Traditional 18k gold wedding ring with elegant design',
+        category: 'Rings',
+        price: { current: 599.99, original: 750.00 },
+        images: ['ring.png'],
+        inventory: { stock: 12, sku: 'RING001' },
+        isActive: true,
+        isFeatured: true,
+        vendor: vendor._id
+      },
+      {
+        name: 'Silver Bracelet',
+        description: 'Delicate silver bracelet with intricate patterns',
+        category: 'Bracelets',
+        price: { current: 45.99, original: 65.00 },
+        images: ['bracelet.png'],
+        inventory: { stock: 20, sku: 'BRAC001' },
+        isActive: true,
+        isFeatured: false,
+        vendor: vendor._id
+      },
+      {
+        name: 'Luxury Watch',
+        description: 'Premium luxury watch with leather strap',
+        category: 'Watches',
+        price: { current: 899.99, original: 1200.00 },
+        images: ['watch.png'],
+        inventory: { stock: 5, sku: 'WATCH001' },
+        isActive: true,
+        isFeatured: true,
+        vendor: vendor._id
+      }
+    ];
+
+    await Product.insertMany(sampleProducts);
+    console.log('Sample products created successfully!');
+    res.json({ message: 'Sample products created successfully!', count: sampleProducts.length });
+  } catch (error) {
+    console.error('Seed error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Failed to seed products', details: error.message });
+  }
+});
+
+// Seed sample products (for development/testing) - POST endpoint
 router.post('/seed', async (req, res) => {
   try {
     // Check if products already exist
