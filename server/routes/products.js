@@ -170,6 +170,91 @@ router.post('/:id/reviews', verifyToken, [
   }
 });
 
+// Test endpoint to check basic functionality
+router.get('/test', async (req, res) => {
+  try {
+    console.log('Test endpoint called');
+    res.json({ message: 'Products route is working', timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Test endpoint error:', error);
+    res.status(500).json({ error: 'Test failed', details: error.message });
+  }
+});
+
+// Simple seed endpoint without vendor creation
+router.get('/simple-seed', async (req, res) => {
+  try {
+    console.log('Simple seed endpoint called');
+    
+    // Check if products already exist
+    const existingProducts = await Product.countDocuments();
+    console.log('Existing products:', existingProducts);
+    
+    if (existingProducts > 0) {
+      return res.json({ message: `${existingProducts} products already exist. Skipping seed.` });
+    }
+
+    // First create a simple vendor
+    let vendor = await Vendor.findOne();
+    if (!vendor) {
+      console.log('Creating simple vendor...');
+      vendor = new Vendor({
+        businessName: 'Test Store',
+        email: 'test@store.com',
+        password: 'test123',
+        contactPerson: {
+          firstName: 'Test',
+          lastName: 'Vendor',
+          phone: '+1234567890'
+        },
+        businessInfo: {
+          category: 'jewelry',
+          specialties: ['rings', 'necklaces']
+        },
+        status: 'active',
+        verification: {
+          isVerified: true
+        }
+      });
+      await vendor.save();
+      console.log('Simple vendor created');
+    }
+
+    // Create a simple product with correct schema
+    const simpleProduct = new Product({
+      name: 'Test Product',
+      description: 'A simple test product',
+      vendor: vendor._id,
+      category: 'rings',
+      price: { 
+        current: 99.99, 
+        original: 120.00,
+        currency: 'USD'
+      },
+      images: [{
+        url: 'test.png',
+        alt: 'Test Product',
+        isPrimary: true
+      }],
+      inventory: { 
+        stock: 10, 
+        sku: 'TEST001',
+        lowStockThreshold: 5
+      },
+      status: 'active',
+      featured: true
+    });
+
+    await simpleProduct.save();
+    console.log('Simple product created');
+    res.json({ message: 'Simple test product created successfully!' });
+  } catch (error) {
+    console.error('Simple seed error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Simple seed failed', details: error.message });
+  }
+});
+
 // Seed sample products (for development/testing) - GET endpoint for browser access
 router.get('/seed', async (req, res) => {
   try {
