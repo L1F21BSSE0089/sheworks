@@ -5,6 +5,7 @@ const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const jwt = require('jsonwebtoken');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const paypal = require('@paypal/paypal-server-sdk');
 const { io } = require('../server');
 const serverModule = require('../server');
 const connectedVendors = serverModule.connectedVendors || new Map();
@@ -12,6 +13,19 @@ const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
 
 const router = express.Router();
+
+// PayPal configuration
+let environment = new paypal.core.SandboxEnvironment(
+  process.env.PAYPAL_CLIENT_ID,
+  process.env.PAYPAL_CLIENT_SECRET
+);
+if (process.env.NODE_ENV === 'production') {
+  environment = new paypal.core.LiveEnvironment(
+    process.env.PAYPAL_CLIENT_ID,
+    process.env.PAYPAL_CLIENT_SECRET
+  );
+}
+const paypalClient = new paypal.core.PayPalHttpClient(environment);
 
 // Middleware to verify token
 const verifyToken = (req, res, next) => {
@@ -178,6 +192,73 @@ router.post('/create-payment-intent', async (req, res) => {
   } catch (error) {
     console.error('Stripe error:', error);
     res.status(500).json({ error: 'Failed to create payment intent' });
+  }
+});
+
+// Create PayPal order
+router.post('/create-paypal-order', async (req, res) => {
+  try {
+    const { amount, currency = 'PKR', items } = req.body;
+    if (!amount) return res.status(400).json({ error: 'Amount is required' });
+
+    const request = new paypal.orders.OrdersCreateRequest();
+    request.prefer("return=representation");
+    request.requestBody({
+      intent: 'CAPTURE',
+      purchase_units: [{
+        amount: {
+          currency_code: currency,
+          value: amount.toString(),
+          breakdown: {
+            item_total: {
+              currency_code: currency,
+              value: amount.toString()
+            }
+          }
+        },
+        items: items?.map(item => ({
+          name: item.name,
+          quantity: item.quantity.toString(),
+          unit_amount: {
+            currency_code: currency,
+            value: item.price.toString()
+          },
+          category: 'PHYSICAL_GOODS'
+        })) || []
+      }],
+      application_context: {
+        return_url: `${process.env.FRONTEND_URL}/checkout/success`,
+        cancel_url: `${process.env.FRONTEND_URL}/checkout/cancel`
+      }
+    });
+
+    const order = await paypalClient.execute(request);
+    res.json({ 
+      orderId: order.result.id,
+      approvalUrl: order.result.links.find(link => link.rel === 'approve').href
+    });
+  } catch (error) {
+    console.error('PayPal error:', error);
+    res.status(500).json({ error: 'Failed to create PayPal order' });
+  }
+});
+
+// Capture PayPal payment
+router.post('/capture-paypal-payment', async (req, res) => {
+  try {
+    const { orderID } = req.body;
+    if (!orderID) return res.status(400).json({ error: 'Order ID is required' });
+
+    const request = new paypal.orders.OrdersCaptureRequest(orderID);
+    const capture = await paypalClient.execute(request);
+    
+    res.json({ 
+      captureId: capture.result.purchase_units[0].payments.captures[0].id,
+      status: capture.result.status
+    });
+  } catch (error) {
+    console.error('PayPal capture error:', error);
+    res.status(500).json({ error: 'Failed to capture PayPal payment' });
   }
 });
 
