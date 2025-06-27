@@ -271,14 +271,14 @@ class ApiService {
       method: "POST",
       body: JSON.stringify({ text, fromLang, toLang, context }),
     });
-  },
+  }
 
   async translateBatch(messages, targetLang) {
     return this.request("/messages/translate-batch", {
       method: "POST",
       body: JSON.stringify({ messages, targetLang }),
     });
-  },
+  }
 }
 
 // Create and export a singleton instance
