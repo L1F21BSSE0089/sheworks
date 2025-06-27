@@ -95,22 +95,34 @@ router.delete('/:id', verifyToken, async (req, res) => {
 // Get recommended products for a user (simple: most popular)
 router.get('/recommendations', async (req, res) => {
   try {
-    // Aggregate product order counts
-    const popular = await Order.aggregate([
-      { $unwind: "$items" },
-      { $group: { _id: "$items.product", count: { $sum: "$items.quantity" } } },
-      { $sort: { count: -1 } },
-      { $limit: 8 }
-    ]);
-    const ids = popular.map(p => p._id);
+    // First check if there are any orders
+    const orderCount = await Order.countDocuments();
+    
     let products = [];
-    if (ids.length) {
-      products = await Product.find({ _id: { $in: ids }, isActive: true });
-    } else {
-      products = await Product.find({ isActive: true }).limit(8);
+    
+    if (orderCount > 0) {
+      // Aggregate product order counts
+      const popular = await Order.aggregate([
+        { $unwind: "$items" },
+        { $group: { _id: "$items.product", count: { $sum: "$items.quantity" } } },
+        { $sort: { count: -1 } },
+        { $limit: 8 }
+      ]);
+      
+      const ids = popular.map(p => p._id);
+      if (ids.length > 0) {
+        products = await Product.find({ _id: { $in: ids }, isActive: true }).populate('vendor', 'businessName');
+      }
     }
+    
+    // If no products from orders, get some active products
+    if (products.length === 0) {
+      products = await Product.find({ isActive: true }).populate('vendor', 'businessName').limit(8);
+    }
+    
     res.json({ products });
   } catch (error) {
+    console.error('Recommendations error:', error);
     res.status(500).json({ error: 'Failed to fetch recommendations' });
   }
 });
