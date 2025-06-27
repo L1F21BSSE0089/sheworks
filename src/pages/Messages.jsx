@@ -171,35 +171,49 @@ export default function Messages() {
     return translatedMessages[messageId] || message.content.text;
   };
 
-  // Handler for starting a new conversation (placeholder logic)
+  // Handler for starting a new conversation
   const handleStartNewConversation = async () => {
     setNewMessageError(null);
-    if (!newRecipientEmail) {
+    if (!newRecipientEmail.trim()) {
       setNewMessageError("Please enter recipient email");
       return;
     }
+    
     try {
+      console.log('Finding recipient by email:', newRecipientEmail);
+      
       // Find recipient by email
-      const res = await apiService.request("/messages/find-recipient", {
-        method: "POST",
-        body: JSON.stringify({ email: newRecipientEmail }),
-      });
+      const res = await apiService.findRecipientByEmail(newRecipientEmail.trim());
+      console.log('Recipient found:', res);
+      
       if (!res.id || !res.type) {
         setNewMessageError("Recipient not found");
         return;
       }
+      
       // Send a first message to start the conversation
+      console.log('Sending initial message to:', res.id);
       await apiService.sendMessage({
         recipientId: res.id,
-        content: "Hi!",
+        content: "Hi! I'd like to start a conversation.",
         language: selectedLanguage,
       });
+      
       setShowNewMessageModal(false);
       setNewRecipientEmail("");
-      // Optionally, refresh conversations
-      apiService.getConversations().then(r => setConversations(r.conversations || []));
+      
+      // Refresh conversations to show the new one
+      const conversationsRes = await apiService.getConversations();
+      setConversations(conversationsRes.conversations || []);
+      
+      // Select the new conversation if it exists
+      if (conversationsRes.conversations && conversationsRes.conversations.length > 0) {
+        setSelectedConversation(conversationsRes.conversations[0]);
+      }
+      
     } catch (err) {
-      setNewMessageError(err.message || "Failed to start conversation");
+      console.error('Error starting conversation:', err);
+      setNewMessageError(err.message || "Failed to start conversation. Please check the email address.");
     }
   };
 
@@ -397,27 +411,65 @@ export default function Messages() {
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm relative">
             <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-              onClick={() => setShowNewMessageModal(false)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl font-bold"
+              onClick={() => {
+                setShowNewMessageModal(false);
+                setNewRecipientEmail("");
+                setNewMessageError(null);
+              }}
               aria-label="Close"
             >
               &times;
             </button>
-            <h3 className="text-lg font-semibold mb-4">Start New Conversation</h3>
-            <input
-              type="email"
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
-              placeholder="Recipient Email"
-              value={newRecipientEmail}
-              onChange={e => setNewRecipientEmail(e.target.value)}
-            />
-            {newMessageError && <div className="text-red-500 text-sm mb-2">{newMessageError}</div>}
-            <button
-              className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
-              onClick={handleStartNewConversation}
-            >
-              Start Chat
-            </button>
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">Start New Conversation</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Enter the email address of the person you want to chat with.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Recipient Email
+                </label>
+                <input
+                  type="email"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="example@email.com"
+                  value={newRecipientEmail}
+                  onChange={e => setNewRecipientEmail(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleStartNewConversation();
+                    }
+                  }}
+                />
+              </div>
+              
+              {newMessageError && (
+                <div className="text-red-500 text-sm bg-red-50 p-2 rounded-lg border border-red-200">
+                  {newMessageError}
+                </div>
+              )}
+              
+              <div className="flex space-x-2 pt-2">
+                <button
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors"
+                  onClick={() => {
+                    setShowNewMessageModal(false);
+                    setNewRecipientEmail("");
+                    setNewMessageError(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  onClick={handleStartNewConversation}
+                  disabled={!newRecipientEmail.trim()}
+                >
+                  Start Chat
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

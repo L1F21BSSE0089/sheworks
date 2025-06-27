@@ -178,6 +178,13 @@ class ApiService {
     return this.request('/messages/customers');
   }
 
+  async findRecipientByEmail(email) {
+    return this.request('/messages/find-recipient', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
   // Health check
   async healthCheck() {
     return this.request('/health');
