@@ -20,6 +20,9 @@ export default function VendorDashboard() {
   const [categoryError, setCategoryError] = useState("");
   const [priceError, setPriceError] = useState("");
   const [stockError, setStockError] = useState("");
+  const [touchStart, setTouchStart] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [imageProcessing, setImageProcessing] = useState(false);
 
   useEffect(() => {
     if (userType !== "vendor") return;
@@ -270,20 +273,47 @@ export default function VendorDashboard() {
       return;
     }
     
-    // For now, use placeholder URLs instead of base64 to improve performance
-    // In production, you'd upload to a CDN like Cloudinary or AWS S3
-    const newImages = files.map((file, index) => ({
-      url: `/placeholder-${Date.now()}-${index}.jpg`, // Placeholder URL
-      alt: file.name,
-      isPrimary: form.images.length === 0 && index === 0, // First image is primary
-      file: file // Keep file reference for potential upload later
-    }));
+    // Process each file and convert to base64 for preview
+    const processFiles = async () => {
+      setImageProcessing(true);
+      const newImages = [];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        
+        try {
+          // Convert file to base64 for preview
+          const base64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          
+          newImages.push({
+            url: base64,
+            alt: file.name,
+            isPrimary: form.images.length === 0 && i === 0, // First image is primary
+            file: file, // Keep file reference
+            originalName: file.name
+          });
+        } catch (error) {
+          console.error('Error processing image:', error);
+          setFormError(`Failed to process image: ${file.name}`);
+          setImageProcessing(false);
+          return;
+        }
+      }
+      
+      setForm(prev => ({
+        ...prev,
+        images: [...prev.images, ...newImages]
+      }));
+      setFormError(null);
+      setImageProcessing(false);
+    };
     
-    setForm(prev => ({
-      ...prev,
-      images: [...prev.images, ...newImages]
-    }));
-    setFormError(null);
+    processFiles();
   };
 
   const removeImage = (index) => {
@@ -312,6 +342,29 @@ export default function VendorDashboard() {
 
   const markAsDelivered = async (orderId) => {
     // Implementation of markAsDelivered
+  };
+
+  // Handle drag and drop for image upload
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      // Create a fake event object to reuse the existing upload logic
+      const fakeEvent = { target: { files } };
+      handleImageUpload(fakeEvent);
+    }
   };
 
   if (userType !== "vendor") {
@@ -485,33 +538,69 @@ export default function VendorDashboard() {
               
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Product Images</label>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  multiple
-                  className="bg-gray-100 p-2 rounded w-full" 
-                  onChange={handleImageUpload} 
-                />
-                <p className="text-xs text-gray-500 mt-1">Upload product images (JPG, PNG, WebP - max 2MB each)</p>
+                <div className="relative">
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    multiple
+                    capture="environment"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                    onChange={handleImageUpload} 
+                    id="image-upload"
+                    disabled={imageProcessing}
+                  />
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                      dragOver 
+                        ? 'border-primary bg-primary bg-opacity-10' 
+                        : 'border-gray-300 hover:border-primary'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <div className="text-gray-500">
+                      {imageProcessing ? (
+                        <div className="flex flex-col items-center">
+                          <svg className="animate-spin h-12 w-12 mb-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <p className="text-sm font-medium">Processing images...</p>
+                          <p className="text-xs text-gray-400 mt-1">Please wait</p>
+                        </div>
+                      ) : (
+                        <>
+                          <svg className="mx-auto h-12 w-12 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <p className="text-sm font-medium">Click to upload images</p>
+                          <p className="text-xs text-gray-400 mt-1">or drag and drop</p>
+                          <p className="text-xs text-gray-400">JPG, PNG, WebP - max 2MB each</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 
                 {/* Image Previews */}
                 {form.images.length > 0 && (
                   <div className="mt-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Images ({form.images.length})</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {form.images.map((img, index) => (
                         <div key={index} className="relative group">
                           <img 
                             src={img.url} 
                             alt={img.alt} 
-                            className={`w-full h-24 object-cover rounded border-2 ${img.isPrimary ? 'border-primary' : 'border-gray-200'}`}
+                            className={`w-full h-24 object-cover rounded-lg border-2 ${img.isPrimary ? 'border-primary' : 'border-gray-200'}`}
                           />
                           <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                             {!img.isPrimary && (
                               <button
                                 type="button"
                                 onClick={() => setPrimaryImage(index)}
-                                className="bg-blue-500 text-white p-1 rounded text-xs"
+                                className="bg-blue-500 text-white p-1 rounded text-xs hover:bg-blue-600 transition-colors"
                                 title="Set as primary"
                               >
                                 ⭐
@@ -520,17 +609,20 @@ export default function VendorDashboard() {
                             <button
                               type="button"
                               onClick={() => removeImage(index)}
-                              className="bg-red-500 text-white p-1 rounded text-xs"
+                              className="bg-red-500 text-white p-1 rounded text-xs hover:bg-red-600 transition-colors"
                               title="Remove image"
                             >
                               ✕
                             </button>
                           </div>
                           {img.isPrimary && (
-                            <div className="absolute top-1 left-1 bg-primary text-white text-xs px-1 rounded">
+                            <div className="absolute top-1 left-1 bg-primary text-white text-xs px-2 py-1 rounded">
                               Primary
                             </div>
                           )}
+                          <div className="absolute bottom-1 right-1 bg-black bg-opacity-70 text-white text-xs px-1 rounded">
+                            {img.originalName ? img.originalName.substring(0, 8) + '...' : 'Image'}
+                          </div>
                         </div>
                       ))}
                     </div>
