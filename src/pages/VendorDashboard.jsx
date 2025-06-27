@@ -21,7 +21,6 @@ export default function VendorDashboard() {
   const [priceError, setPriceError] = useState("");
   const [stockError, setStockError] = useState("");
   const [touchStart, setTouchStart] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
   const [imageProcessing, setImageProcessing] = useState(false);
 
   useEffect(() => {
@@ -344,29 +343,6 @@ export default function VendorDashboard() {
     // Implementation of markAsDelivered
   };
 
-  // Handle drag and drop for image upload
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      // Create a fake event object to reuse the existing upload logic
-      const fakeEvent = { target: { files } };
-      handleImageUpload(fakeEvent);
-    }
-  };
-
   if (userType !== "vendor") {
     return <div className="p-8 text-red-500">Access denied. Vendors only.</div>;
   }
@@ -543,21 +519,17 @@ export default function VendorDashboard() {
                     type="file" 
                     accept="image/*" 
                     multiple
-                    capture="environment"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer touch-manipulation" 
                     onChange={handleImageUpload} 
                     id="image-upload"
                     disabled={imageProcessing}
                   />
                   <div 
-                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                      dragOver 
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200 ${
+                      imageProcessing 
                         ? 'border-primary bg-primary bg-opacity-10' 
-                        : 'border-gray-300 hover:border-primary'
+                        : 'border-gray-300 hover:border-primary active:bg-gray-50 active:scale-95'
                     }`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
                   >
                     <div className="text-gray-500">
                       {imageProcessing ? (
@@ -574,8 +546,8 @@ export default function VendorDashboard() {
                           <svg className="mx-auto h-12 w-12 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                             <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
-                          <p className="text-sm font-medium">Click to upload images</p>
-                          <p className="text-xs text-gray-400 mt-1">or drag and drop</p>
+                          <p className="text-sm font-medium">Tap to upload images</p>
+                          <p className="text-xs text-gray-400 mt-1">Choose from gallery or take a photo</p>
                           <p className="text-xs text-gray-400">JPG, PNG, WebP - max 2MB each</p>
                         </>
                       )}
