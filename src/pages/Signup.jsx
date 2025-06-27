@@ -26,7 +26,7 @@ export default function Signup() {
     // Initialize Google OAuth
     if (window.google) {
       window.google.accounts.id.initialize({
-        client_id: "YOUR_GOOGLE_CLIENT_ID", // You'll need to replace this with your actual Google Client ID
+        client_id: "384698730754-e8dhto602di0o4trdvoelggmk61gjiqp.apps.googleusercontent.com",
         callback: handleGoogleSignup,
       });
       
