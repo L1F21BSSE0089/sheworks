@@ -3,7 +3,6 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import apiService from "../services/api";
 import { useNavigate } from "react-router-dom";
-import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { FaCreditCard, FaPaypal, FaMoneyBillWave, FaLock, FaShieldAlt, FaTruck, FaCheckCircle } from "react-icons/fa";
 import DropIn from 'braintree-web-drop-in-react';
 
@@ -11,8 +10,6 @@ export default function Checkout({ showToast }) {
   const { cart, total, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const stripe = useStripe();
-  const elements = useElements();
 
   // Form states
   const [formData, setFormData] = useState({
@@ -34,9 +31,9 @@ export default function Checkout({ showToast }) {
   const [error, setError] = useState(null);
   const [orderId, setOrderId] = useState(null);
   const [shippingMethod, setShippingMethod] = useState("standard");
-  const [cardComplete, setCardComplete] = useState(false);
   const [braintreeInstance, setBraintreeInstance] = useState(null);
   const [braintreeToken, setBraintreeToken] = useState(null);
+  const [tokenLoadingError, setTokenLoadingError] = useState(false);
 
   const shippingMethods = [
     { id: "standard", name: "Standard Delivery", cost: 0, time: "3-5 business days" },
@@ -55,9 +52,17 @@ export default function Checkout({ showToast }) {
 
   useEffect(() => {
     if (paymentMethod === 'card') {
+      setBraintreeToken(null);
+      setBraintreeInstance(null);
+      setTokenLoadingError(false);
+      setError(null);
       apiService.request('/orders/braintree/token')
         .then(res => setBraintreeToken(res.clientToken))
-        .catch(() => setBraintreeToken(null));
+        .catch(err => {
+          console.error('Failed to load Braintree token:', err);
+          setTokenLoadingError(true);
+          setError('Failed to load payment form. Please try again.');
+        });
     }
   }, [paymentMethod]);
 
@@ -69,10 +74,6 @@ export default function Checkout({ showToast }) {
     }));
   };
 
-  const handleCardChange = (event) => {
-    setCardComplete(event.complete);
-  };
-
   const validateStep = (step) => {
     switch (step) {
       case 1: // Shipping info
@@ -81,7 +82,7 @@ export default function Checkout({ showToast }) {
                formData.state && formData.zipCode;
       case 2: // Payment
         if (paymentMethod === "card") {
-          return cardComplete;
+          return braintreeInstance !== null;
         }
         return true;
       default:
@@ -112,53 +113,20 @@ export default function Checkout({ showToast }) {
 
       switch (paymentMethod) {
         case "card":
-          // Try Stripe first
-          try {
-            const intentRes = await apiService.request("/orders/create-payment-intent", {
-              method: "POST",
-              body: { 
-                amount: finalTotal * 100, // Convert to cents
-                currency: "pkr",
-                metadata: { order_type: "product_purchase" }
-              },
-            });
-            const cardElement = elements.getElement(CardElement);
-            const { paymentIntent, error: stripeError } = await stripe.confirmCardPayment(
-              intentRes.clientSecret, 
-              {
-                payment_method: {
-                  card: cardElement,
-                  billing_details: { 
-                    name: `${formData.firstName} ${formData.lastName}`, 
-                    email: formData.email 
-                  },
-                },
-              }
-            );
-            if (stripeError) throw new Error(stripeError.message);
-            if (paymentIntent.status !== "succeeded") throw new Error("Payment failed");
-            paymentResult = {
-              method: "card",
-              status: "paid",
-              transactionId: paymentIntent.id,
-              amount: finalTotal
-            };
-          } catch (stripeErr) {
-            // If Stripe fails, try Braintree
-            if (!braintreeInstance) throw new Error('Payment form not ready');
-            const { nonce } = await braintreeInstance.requestPaymentMethod();
-            const result = await apiService.request('/orders/braintree/checkout', {
-              method: 'POST',
-              body: { paymentMethodNonce: nonce, amount: finalTotal },
-            });
-            if (!result.success) throw new Error(result.message || 'Payment failed');
-            paymentResult = {
-              method: 'card',
-              status: 'paid',
-              transactionId: result.transaction.id,
-              amount: finalTotal
-            };
-          }
+          // Use Braintree for card payments
+          if (!braintreeInstance) throw new Error('Payment form not ready');
+          const { nonce } = await braintreeInstance.requestPaymentMethod();
+          const result = await apiService.request('/orders/braintree/checkout', {
+            method: 'POST',
+            body: { paymentMethodNonce: nonce, amount: finalTotal },
+          });
+          if (!result.success) throw new Error(result.message || 'Payment failed');
+          paymentResult = {
+            method: 'card',
+            status: 'paid',
+            transactionId: result.transaction.id,
+            amount: finalTotal
+          };
           break;
 
         case "cod":
@@ -187,8 +155,7 @@ export default function Checkout({ showToast }) {
         payment: paymentResult,
         shipping: {
           method: shippingMethod,
-          cost: selectedShipping.cost,
-          estimatedDays: selectedShipping.time
+          cost: selectedShipping.cost
         },
         totals: {
           subtotal: total,
@@ -376,27 +343,36 @@ export default function Checkout({ showToast }) {
       {paymentMethod === "card" && (
         <div className="mt-6 p-4 border rounded-lg bg-white">
           <div className="mb-2 font-medium">Card Details</div>
-          <div style={{ marginBottom: 16 }}>
-            <CardElement
-              options={{
-                style: {
-                  base: {
-                    fontSize: '16px',
-                    color: '#424770',
-                    '::placeholder': { color: '#aab7c4' },
-                  },
-                  invalid: { color: '#9e2146' },
-                },
-              }}
-            />
-          </div>
-          {braintreeToken ? (
+          {tokenLoadingError ? (
+            <div className="text-center py-8">
+              <div className="text-red-600 mb-2">Failed to load payment form</div>
+              <button 
+                onClick={() => {
+                  setTokenLoadingError(false);
+                  setError(null);
+                  apiService.request('/orders/braintree/token')
+                    .then(res => setBraintreeToken(res.clientToken))
+                    .catch(err => {
+                      console.error('Failed to load Braintree token:', err);
+                      setTokenLoadingError(true);
+                      setError('Failed to load payment form. Please try again.');
+                    });
+                }}
+                className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
+              >
+                Retry
+              </button>
+            </div>
+          ) : braintreeToken ? (
             <DropIn
               options={{ authorization: braintreeToken }}
               onInstance={instance => setBraintreeInstance(instance)}
             />
           ) : (
-            <div>Loading payment form...</div>
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-2">Loading payment form...</span>
+            </div>
           )}
         </div>
       )}

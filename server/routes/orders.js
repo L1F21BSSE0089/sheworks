@@ -34,12 +34,86 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+// Test order creation (for debugging)
+router.post('/test', verifyToken, async (req, res) => {
+  if (req.user.userType !== 'customer') return res.status(403).json({ error: 'Only customers can place orders' });
+  try {
+    const { items, billingAddress, shippingAddress, payment, shipping } = req.body;
+    
+    console.log('Test order data:', { items, billingAddress, shippingAddress, payment, shipping });
+    
+    // Validate required fields
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'No items in order' });
+    }
+    
+    if (!billingAddress || !shippingAddress) {
+      return res.status(400).json({ error: 'Billing and shipping addresses are required' });
+    }
+    
+    if (!payment) {
+      return res.status(400).json({ error: 'Payment information is required' });
+    }
+    
+    if (!shipping) {
+      return res.status(400).json({ error: 'Shipping information is required' });
+    }
+    
+    // Validate address fields
+    const requiredAddressFields = ['firstName', 'lastName', 'email', 'phone', 'street', 'city', 'state', 'zipCode', 'country'];
+    for (const field of requiredAddressFields) {
+      if (!billingAddress[field]) {
+        return res.status(400).json({ error: `Billing address ${field} is required` });
+      }
+      if (!shippingAddress[field]) {
+        return res.status(400).json({ error: `Shipping address ${field} is required` });
+      }
+    }
+    
+    res.json({ 
+      message: 'Order data validation passed',
+      data: { items, billingAddress, shippingAddress, payment, shipping }
+    });
+  } catch (err) {
+    console.error('Test order error:', err);
+    res.status(500).json({ error: err.message || 'Server error' });
+  }
+});
+
 // Place a new order (customer)
 router.post('/', verifyToken, async (req, res) => {
   if (req.user.userType !== 'customer') return res.status(403).json({ error: 'Only customers can place orders' });
   try {
     const { items, billingAddress, shippingAddress, payment, shipping } = req.body;
-    if (!items || !Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'No items in order' });
+    
+    // Validate required fields
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'No items in order' });
+    }
+    
+    if (!billingAddress || !shippingAddress) {
+      return res.status(400).json({ error: 'Billing and shipping addresses are required' });
+    }
+    
+    if (!payment) {
+      return res.status(400).json({ error: 'Payment information is required' });
+    }
+    
+    if (!shipping) {
+      return res.status(400).json({ error: 'Shipping information is required' });
+    }
+    
+    // Validate address fields
+    const requiredAddressFields = ['firstName', 'lastName', 'email', 'phone', 'street', 'city', 'state', 'zipCode', 'country'];
+    for (const field of requiredAddressFields) {
+      if (!billingAddress[field]) {
+        return res.status(400).json({ error: `Billing address ${field} is required` });
+      }
+      if (!shippingAddress[field]) {
+        return res.status(400).json({ error: `Shipping address ${field} is required` });
+      }
+    }
+    
     // Calculate totals
     let subtotal = 0;
     for (const item of items) {
@@ -51,15 +125,46 @@ router.post('/', verifyToken, async (req, res) => {
       product.inventory.stock -= item.quantity;
       await product.save();
     }
+    
     const tax = subtotal * 0.1;
     const total = subtotal + tax + (shipping?.cost || 0) - (payment?.discount || 0);
+    
+    // Map payment method to valid enum values
+    let paymentMethod = payment?.method;
+    if (paymentMethod === 'card') {
+      paymentMethod = 'credit_card';
+    } else if (paymentMethod === 'cod') {
+      paymentMethod = 'cash_on_delivery';
+    }
+    
+    // Map payment status to valid enum values
+    let paymentStatus = payment?.status;
+    if (paymentStatus === 'paid') {
+      paymentStatus = 'completed';
+    }
+    
+    // Map shipping method to valid enum values
+    let shippingMethod = shipping?.method;
+    if (!shippingMethod || !['standard', 'express', 'overnight', 'pickup'].includes(shippingMethod)) {
+      shippingMethod = 'standard';
+    }
+    
     const order = new Order({
       customer: req.user.userId,
       items,
       billingAddress,
       shippingAddress,
-      payment: { ...payment, amount: total },
-      shipping,
+      payment: { 
+        ...payment, 
+        method: paymentMethod,
+        status: paymentStatus || 'pending',
+        amount: total 
+      },
+      shipping: {
+        ...shipping,
+        method: shippingMethod,
+        cost: shipping?.cost || 0
+      },
       totals: {
         subtotal,
         tax,
@@ -70,7 +175,9 @@ router.post('/', verifyToken, async (req, res) => {
       status: 'pending',
       statusHistory: [{ status: 'pending', timestamp: new Date() }]
     });
+    
     await order.save();
+    
     // Emit real-time notification to vendors
     const vendorIds = [...new Set(items.map(i => i.vendor.toString()))];
     vendorIds.forEach(async vendorId => {
@@ -95,6 +202,7 @@ router.post('/', verifyToken, async (req, res) => {
         data: { orderId: order._id }
       });
     });
+    
     // Send order confirmation email
     try {
       const user = await User.findById(req.user.userId);
@@ -126,9 +234,11 @@ router.post('/', verifyToken, async (req, res) => {
     } catch (emailErr) {
       console.error('Order confirmation email failed:', emailErr);
     }
+    
     res.status(201).json({ order });
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('Order creation error:', err);
+    res.status(500).json({ error: err.message || 'Server error' });
   }
 });
 
@@ -189,30 +299,88 @@ router.post('/create-payment-intent', async (req, res) => {
   }
 });
 
+// Test Braintree configuration
+router.get('/braintree/test', async (req, res) => {
+  try {
+    if (!process.env.BRAINTREE_MERCHANT_ID || !process.env.BRAINTREE_PUBLIC_KEY || !process.env.BRAINTREE_PRIVATE_KEY) {
+      return res.status(500).json({ 
+        error: 'Braintree environment variables not configured',
+        missing: {
+          merchantId: !process.env.BRAINTREE_MERCHANT_ID,
+          publicKey: !process.env.BRAINTREE_PUBLIC_KEY,
+          privateKey: !process.env.BRAINTREE_PRIVATE_KEY
+        }
+      });
+    }
+    
+    res.json({ 
+      message: 'Braintree configuration is valid',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    console.error('Braintree test error:', error);
+    res.status(500).json({ error: 'Braintree test failed' });
+  }
+});
+
 // Generate Braintree client token
 router.get('/braintree/token', async (req, res) => {
-  gateway.clientToken.generate({}, (err, response) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ clientToken: response.clientToken });
-  });
+  try {
+    if (!process.env.BRAINTREE_MERCHANT_ID || !process.env.BRAINTREE_PUBLIC_KEY || !process.env.BRAINTREE_PRIVATE_KEY) {
+      console.error('Braintree environment variables not configured');
+      return res.status(500).json({ error: 'Payment gateway not configured' });
+    }
+    
+    gateway.clientToken.generate({}, (err, response) => {
+      if (err) {
+        console.error('Braintree token generation error:', err);
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({ clientToken: response.clientToken });
+    });
+  } catch (error) {
+    console.error('Braintree token generation error:', error);
+    res.status(500).json({ error: 'Failed to generate payment token' });
+  }
 });
 
 // Process Braintree transaction
 router.post('/braintree/checkout', async (req, res) => {
-  const { paymentMethodNonce, amount } = req.body;
-  gateway.transaction.sale(
-    {
-      amount,
-      paymentMethodNonce,
-      options: { submitForSettlement: true },
-    },
-    (err, result) => {
-      if (err || !result.success) {
-        return res.status(500).json({ error: err ? err.message : result.message });
-      }
-      res.json(result);
+  try {
+    const { paymentMethodNonce, amount } = req.body;
+    
+    if (!paymentMethodNonce || !amount) {
+      return res.status(400).json({ error: 'Payment method nonce and amount are required' });
     }
-  );
+    
+    if (!process.env.BRAINTREE_MERCHANT_ID || !process.env.BRAINTREE_PUBLIC_KEY || !process.env.BRAINTREE_PRIVATE_KEY) {
+      console.error('Braintree environment variables not configured');
+      return res.status(500).json({ error: 'Payment gateway not configured' });
+    }
+    
+    gateway.transaction.sale(
+      {
+        amount,
+        paymentMethodNonce,
+        options: { submitForSettlement: true },
+      },
+      (err, result) => {
+        if (err) {
+          console.error('Braintree transaction error:', err);
+          return res.status(500).json({ error: err.message });
+        }
+        if (!result.success) {
+          console.error('Braintree transaction failed:', result.message);
+          return res.status(500).json({ error: result.message });
+        }
+        console.log('Braintree transaction successful:', result.transaction.id);
+        res.json(result);
+      }
+    );
+  } catch (error) {
+    console.error('Braintree checkout error:', error);
+    res.status(500).json({ error: 'Payment processing failed' });
+  }
 });
 
 module.exports = router; 
