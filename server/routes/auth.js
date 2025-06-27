@@ -24,7 +24,9 @@ router.post('/register/user', [
   body('lastName').notEmpty().withMessage('Last name is required')
 ], async (req, res) => {
   try {
-    console.log('User registration attempt:', { email: req.body.email, username: req.body.username });
+    console.log('=== USER REGISTRATION START ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Request headers:', req.headers);
     
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -33,8 +35,10 @@ router.post('/register/user', [
     }
 
     const { username, email, password, firstName, lastName, phone } = req.body;
+    console.log('Extracted data:', { username, email, firstName, lastName, phone: phone || 'not provided' });
 
     // Check if user already exists
+    console.log('Checking for existing user...');
     const existingUser = await User.findOne({ 
       $or: [{ email }, { username }] 
     });
@@ -58,13 +62,16 @@ router.post('/register/user', [
       phone
     });
 
+    console.log('User object created, saving to database...');
     await user.save();
-    console.log('User created successfully:', user._id);
+    console.log('User saved successfully:', user._id);
 
     // Generate token
+    console.log('Generating JWT token...');
     const token = generateToken(user._id, 'customer');
+    console.log('Token generated successfully');
 
-    res.status(201).json({
+    const responseData = {
       message: 'User registered successfully',
       token,
       user: {
@@ -75,11 +82,19 @@ router.post('/register/user', [
         lastName: user.lastName,
         fullName: user.fullName
       }
-    });
+    };
+
+    console.log('Sending response:', JSON.stringify(responseData, null, 2));
+    console.log('=== USER REGISTRATION SUCCESS ===');
+    
+    res.status(201).json(responseData);
 
   } catch (error) {
-    console.error('Registration error details:', error);
+    console.error('=== USER REGISTRATION ERROR ===');
+    console.error('Error details:', error);
+    console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
+    console.error('=== END ERROR ===');
     res.status(500).json({ error: 'Server error', details: error.message });
   }
 });

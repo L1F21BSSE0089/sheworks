@@ -72,15 +72,26 @@ app.use('/api/notifications', notificationsRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'She E-commerce Backend is running!',
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Simple test endpoint for debugging
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Test endpoint working',
     timestamp: new Date().toISOString()
   });
 });
 
-// Simple test endpoint
-app.get('/api/test', (req, res) => {
+// Test POST endpoint
+app.post('/api/test', (req, res) => {
+  console.log('Test POST request received:', req.body);
   res.json({ 
-    message: 'Server is working!',
+    message: 'Test POST endpoint working',
+    receivedData: req.body,
     timestamp: new Date().toISOString()
   });
 });
@@ -100,6 +111,42 @@ app.get('/api/test-products', async (req, res) => {
     res.status(500).json({ 
       error: 'Products test failed',
       details: error.message 
+    });
+  }
+});
+
+// Test auth endpoint
+app.post('/api/test-auth', async (req, res) => {
+  try {
+    console.log('Test auth endpoint called with body:', req.body);
+    
+    const User = require('./models/User');
+    const bcrypt = require('bcryptjs');
+    
+    // Test creating a simple user
+    const testUser = new User({
+      username: 'testuser' + Date.now(),
+      email: 'test@example.com',
+      password: 'test123',
+      firstName: 'Test',
+      lastName: 'User'
+    });
+    
+    await testUser.save();
+    console.log('Test user created successfully:', testUser._id);
+    
+    res.json({ 
+      message: 'Auth test successful',
+      userId: testUser._id,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Auth test error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Auth test failed', 
+      details: error.message,
+      stack: error.stack 
     });
   }
 });
