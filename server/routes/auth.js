@@ -501,4 +501,9 @@ router.delete('/users/me/wishlist/:productId', verifyToken, async (req, res) => 
   }
 });
 
+router.get('/users/me/wishlist', (req, res) => {
+  // Optionally, check authentication here if needed
+  res.json({ wishlist: [] });
+});
+
 module.exports = { router, verifyToken }; 
