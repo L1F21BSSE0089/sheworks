@@ -423,32 +423,33 @@ export default function Messages() {
   const handleStartNewConversation = async () => {
     setNewMessageError(null);
     if (!newRecipientEmail.trim()) {
-      setNewMessageError("Please enter recipient email");
+      setNewMessageError("Please select a recipient");
       return;
     }
     
     try {
-      console.log('🔍 Finding recipient by email:', newRecipientEmail);
+      // Find the selected user from allUsers array
+      const selectedUser = allUsers.find(user => user.email === newRecipientEmail);
       
-      // Find recipient by email
-      const res = await apiService.findRecipientByEmail(newRecipientEmail.trim());
-      console.log('✅ Recipient found:', res);
-      
-      if (!res.id || !res.type) {
-        setNewMessageError("Recipient not found");
+      if (!selectedUser) {
+        setNewMessageError("Selected user not found");
         return;
       }
       
+      console.log('🔍 Starting conversation with:', selectedUser);
+      
       // Send a first message to start the conversation
-      console.log('📤 Sending initial message to:', res.id);
+      console.log('📤 Sending initial message to:', selectedUser.id);
       await apiService.sendMessage({
-        recipientId: res.id,
+        recipientId: selectedUser.id,
         content: "Hi! I'd like to start a conversation.",
         language: selectedLanguage,
       });
       
       setShowNewMessageModal(false);
       setNewRecipientEmail("");
+      setSearchQuery("");
+      setShowUserDropdown(false);
       
       // Refresh conversations to show the new one
       const conversationsRes = await apiService.getConversations();
@@ -461,7 +462,7 @@ export default function Messages() {
       
     } catch (err) {
       console.error('❌ Error starting conversation:', err);
-      setNewMessageError(err.message || "Failed to start conversation. Please check the email address.");
+      setNewMessageError(err.message || "Failed to start conversation. Please try again.");
     }
   };
 
