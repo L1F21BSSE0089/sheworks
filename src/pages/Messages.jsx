@@ -414,13 +414,30 @@ export default function Messages() {
     const originalText = message.content?.text || message.text || '';
     const originalLang = message.content?.language || message.language || 'en';
     
-    // If message is in selected language, show original
+    console.log('📝 getDisplayMessage:', {
+      messageId,
+      originalText: originalText.substring(0, 30) + '...',
+      originalLang,
+      selectedLanguage,
+      hasTranslation: !!translatedMessages[messageId],
+      translatedText: translatedMessages[messageId]?.substring(0, 30) + '...'
+    });
+    
+    // If we have a translated version, show it
+    if (translatedMessages[messageId]) {
+      console.log('✅ Showing translated message:', translatedMessages[messageId].substring(0, 30) + '...');
+      return translatedMessages[messageId];
+    }
+    
+    // If message is already in selected language, show original
     if (originalLang === selectedLanguage) {
+      console.log('⏭️ Showing original message (same language)');
       return originalText;
     }
     
-    // Show translated version if available
-    return translatedMessages[messageId] || originalText;
+    // Otherwise show original (will be translated later)
+    console.log('📄 Showing original message (will be translated)');
+    return originalText;
   };
 
   // Handler for starting a new conversation
@@ -541,6 +558,9 @@ export default function Messages() {
                       {typingUsers.size > 0 && (
                         <p className="text-xs text-gray-500 italic">typing...</p>
                       )}
+                      <div className="text-xs text-gray-400">
+                        Lang: {selectedLanguage} | Translations: {Object.keys(translatedMessages).length}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
