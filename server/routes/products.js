@@ -26,8 +26,13 @@ router.get('/', async (req, res) => {
     console.log('=== GET PRODUCTS START ===');
     const { page = 1, limit = 50, category, search, sort } = req.query;
     
-    // Build query
-    let query = { isActive: true };
+    // Build query - be more lenient with isActive filter
+    let query = { 
+      $or: [
+        { isActive: true },
+        { isActive: { $exists: false } }
+      ]
+    };
     
     if (category) {
       query.category = category;
@@ -678,6 +683,45 @@ router.post('/test-create', verifyToken, async (req, res) => {
   } catch (err) {
     console.error('Test product creation error:', err);
     res.status(500).json({ error: 'Test failed', details: err.message });
+  }
+});
+
+// Debug endpoint to check all products in database
+router.get('/debug/all', async (req, res) => {
+  try {
+    console.log('=== DEBUG ALL PRODUCTS ===');
+    
+    // Get all products without any filters
+    const allProducts = await Product.find({});
+    console.log('Total products in DB:', allProducts.length);
+    
+    // Get active products
+    const activeProducts = await Product.find({ isActive: true });
+    console.log('Active products:', activeProducts.length);
+    
+    // Get inactive products
+    const inactiveProducts = await Product.find({ isActive: false });
+    console.log('Inactive products:', inactiveProducts.length);
+    
+    // Get products without isActive field
+    const noActiveField = await Product.find({ isActive: { $exists: false } });
+    console.log('Products without isActive field:', noActiveField.length);
+    
+    res.json({
+      total: allProducts.length,
+      active: activeProducts.length,
+      inactive: inactiveProducts.length,
+      noActiveField: noActiveField.length,
+      sampleProducts: allProducts.slice(0, 3).map(p => ({
+        id: p._id,
+        name: p.name,
+        isActive: p.isActive,
+        category: p.category
+      }))
+    });
+  } catch (err) {
+    console.error('Debug endpoint error:', err);
+    res.status(500).json({ error: 'Debug failed', details: err.message });
   }
 });
 
