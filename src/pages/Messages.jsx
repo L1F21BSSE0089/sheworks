@@ -98,16 +98,40 @@ export default function Messages() {
       try {
         setSearchLoading(true);
         console.log('🔍 Loading users and vendors...');
+        console.log('🔑 Current user:', user);
+        console.log('🔑 User token:', localStorage.getItem('token'));
+        
+        // Test API health first
+        try {
+          const healthCheck = await apiService.healthCheck();
+          console.log('🏥 API Health Check:', healthCheck);
+        } catch (healthError) {
+          console.error('❌ API Health Check Failed:', healthError);
+        }
+        
+        // Test database status
+        try {
+          const dbTest = await apiService.testDatabase();
+          console.log('🧪 Database Test:', dbTest);
+        } catch (dbError) {
+          console.error('❌ Database Test Failed:', dbError);
+        }
         
         const [customersRes, vendorsRes] = await Promise.all([
-          apiService.getCustomers(),
-          apiService.getVendors()
+          apiService.getCustomers().catch(err => {
+            console.error('❌ Customers API Error:', err);
+            return { customers: [] };
+          }),
+          apiService.getVendors().catch(err => {
+            console.error('❌ Vendors API Error:', err);
+            return { vendors: [] };
+          })
         ]);
         
         console.log('📊 Customers response:', customersRes);
         console.log('📊 Vendors response:', vendorsRes);
         
-        const customers = (customersRes.users || customersRes || []).map(user => ({
+        const customers = (customersRes.users || customersRes.customers || customersRes || []).map(user => ({
           id: user._id,
           name: `${user.firstName} ${user.lastName}`.trim(),
           email: user.email,
@@ -133,13 +157,14 @@ export default function Messages() {
       } catch (err) {
         console.error('❌ Error loading users:', err);
         console.error('❌ Error details:', err.message);
+        console.error('❌ Error stack:', err.stack);
       } finally {
         setSearchLoading(false);
       }
     };
     
     loadAllUsers();
-  }, []);
+  }, [user]);
 
   // Handle clicking outside dropdown
   useEffect(() => {

@@ -178,6 +178,10 @@ class ApiService {
     return this.request('/messages/customers');
   }
 
+  async testDatabase() {
+    return this.request('/messages/test-db');
+  }
+
   async findRecipientByEmail(email) {
     return this.request('/messages/find-recipient', {
       method: 'POST',

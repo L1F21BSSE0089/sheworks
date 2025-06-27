@@ -424,4 +424,34 @@ router.post('/find-recipient', verifyToken, async (req, res) => {
   res.json({ id: recipient._id, type });
 });
 
+// Test endpoint to check database status
+router.get('/test-db', verifyToken, async (req, res) => {
+  try {
+    console.log('🧪 Testing database connection...');
+    
+    const totalUsers = await User.countDocuments();
+    const totalVendors = await Vendor.countDocuments();
+    
+    console.log(`📊 Database counts - Users: ${totalUsers}, Vendors: ${totalVendors}`);
+    
+    // Get sample users
+    const sampleUsers = await User.find({}).limit(3).select('firstName lastName email');
+    const sampleVendors = await Vendor.find({}).limit(3).select('businessName email contactPerson');
+    
+    res.json({
+      success: true,
+      counts: {
+        users: totalUsers,
+        vendors: totalVendors,
+        total: totalUsers + totalVendors
+      },
+      sampleUsers,
+      sampleVendors
+    });
+  } catch (error) {
+    console.error('❌ Database test error:', error);
+    res.status(500).json({ error: 'Database test failed', details: error.message });
+  }
+});
+
 module.exports = router; 
