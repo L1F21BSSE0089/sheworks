@@ -7,7 +7,7 @@ import { useLanguage, LANGUAGES } from "../context/LanguageContext";
 
 export default function Messages() {
   const { user, userType } = useAuth();
-  const { language: userLanguage, translate, translateMessage, translateBatch, isTranslating } = useLanguage();
+  const { language: userLanguage, translate, translateMessage, translateBatch } = useLanguage();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -313,13 +313,6 @@ export default function Messages() {
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {loading ? (
                   <div className="text-center text-gray-400">Loading messages...</div>
-                ) : isTranslating ? (
-                  <div className="text-center text-gray-400">
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                      <span>AI is translating messages...</span>
-                    </div>
-                  </div>
                 ) : messages.length === 0 ? (
                   <div className="text-center text-gray-400">No messages yet.</div>
                 ) : (
@@ -342,9 +335,6 @@ export default function Messages() {
                           <div className="flex items-center space-x-2 mb-1">
                             <span className="text-xs opacity-75">{getLanguageFlag(message.content.language)}</span>
                             <span className="text-xs opacity-75">{getLanguageName(message.content.language)}</span>
-                            {message.content.language !== userLanguage && (
-                              <span className="text-xs opacity-50">(AI translated)</span>
-                            )}
                           </div>
                           <p className="text-sm">{getDisplayMessage(message)}</p>
                           <p className={`text-xs mt-1 ${

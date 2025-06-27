@@ -3,8 +3,14 @@ import apiService from "../services/api";
 
 const LanguageContext = createContext();
 
-// Available languages with their display names and codes
-export const LANGUAGES = {
+// Interface languages - only English and Urdu
+export const INTERFACE_LANGUAGES = {
+  en: { name: "English", nativeName: "English", flag: "🇺🇸" },
+  ur: { name: "Urdu", nativeName: "اردو", flag: "🇵🇰" }
+};
+
+// All languages for messaging (keep multilingual)
+export const MESSAGE_LANGUAGES = {
   en: { name: "English", nativeName: "English", flag: "🇺🇸" },
   ur: { name: "Urdu", nativeName: "اردو", flag: "🇵🇰" },
   ar: { name: "Arabic", nativeName: "العربية", flag: "🇸🇦" },
@@ -23,77 +29,169 @@ export const LANGUAGES = {
   nl: { name: "Dutch", nativeName: "Nederlands", flag: "🇳🇱" }
 };
 
-// Generic translation function - can be easily replaced with any API
-const translateText = async (text, fromLang, toLang) => {
-  if (!text || fromLang === toLang) return text;
+// Interface translations (English as base)
+const INTERFACE_TRANSLATIONS = {
+  en: {
+    // Navigation
+    "Home": "Home",
+    "Products": "Products",
+    "About": "About",
+    "Contact": "Contact",
+    "Cart": "Cart",
+    "Wishlist": "Wishlist",
+    "Account": "Account",
+    "Login": "Login",
+    "Signup": "Signup",
+    "Logout": "Logout",
+    "Dashboard": "Dashboard",
+    "Messages": "Messages",
+    "Notifications": "Notifications",
+    
+    // Common actions
+    "Add to Cart": "Add to Cart",
+    "Add to Wishlist": "Add to Wishlist",
+    "Remove from Wishlist": "Remove from Wishlist",
+    "View Details": "View Details",
+    "Buy Now": "Buy Now",
+    "Checkout": "Checkout",
+    "Continue Shopping": "Continue Shopping",
+    "Place Order": "Place Order",
+    "Confirm Order": "Confirm Order",
+    
+    // Product related
+    "Price": "Price",
+    "Quantity": "Quantity",
+    "Total": "Total",
+    "Description": "Description",
+    "Reviews": "Reviews",
+    "Rating": "Rating",
+    "In Stock": "In Stock",
+    "Out of Stock": "Out of Stock",
+    "Free Shipping": "Free Shipping",
+    "Fast Delivery": "Fast Delivery",
+    
+    // Forms
+    "Email": "Email",
+    "Password": "Password",
+    "Confirm Password": "Confirm Password",
+    "Name": "Name",
+    "Phone": "Phone",
+    "Address": "Address",
+    "City": "City",
+    "Country": "Country",
+    "Submit": "Submit",
+    "Cancel": "Cancel",
+    "Save": "Save",
+    "Edit": "Edit",
+    "Delete": "Delete",
+    
+    // Messages
+    "Send Message": "Send Message",
+    "Type your message": "Type your message",
+    "Start Conversation": "Start Conversation",
+    "New Message": "New Message",
+    "Search users": "Search users",
+    "No messages yet": "No messages yet",
+    "Select a conversation": "Select a conversation",
+    
+    // Notifications
+    "No notifications": "No notifications",
+    "Mark as read": "Mark as read",
+    "Mark all as read": "Mark all as read",
+    
+    // Footer
+    "Follow us": "Follow us",
+    "Customer Service": "Customer Service",
+    "Privacy Policy": "Privacy Policy",
+    "Terms of Service": "Terms of Service",
+    "All rights reserved": "All rights reserved"
+  },
+  ur: {} // Will be populated with DeepL translations
+};
+
+// DeepL translation function for interface
+const translateInterfaceText = async (text, toLang) => {
+  if (!text || toLang === 'en') return text;
   
   try {
-    // Option 1: Use DeepL API (best quality, requires API key)
+    // Use DeepL API for interface translation
     if (import.meta.env.VITE_DEEPL_API_KEY) {
-      try {
-        const deeplResponse = await fetch('https://api-free.deepl.com/v2/translate', {
-          method: 'POST',
-          headers: { 
-            'Authorization': `DeepL-Auth-Key ${import.meta.env.VITE_DEEPL_API_KEY}`,
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: new URLSearchParams({
-            text: text,
-            source_lang: fromLang.toUpperCase(),
-            target_lang: toLang.toUpperCase()
-          })
-        });
-        
-        if (deeplResponse.ok) {
-          const data = await deeplResponse.json();
-          if (data.translations && data.translations[0]) {
-            console.log('DeepL translation successful');
-            return data.translations[0].text;
-          }
+      const deeplResponse = await fetch('https://api-free.deepl.com/v2/translate', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `DeepL-Auth-Key ${import.meta.env.VITE_DEEPL_API_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          text: text,
+          source_lang: 'EN',
+          target_lang: toLang.toUpperCase()
+        })
+      });
+      
+      if (deeplResponse.ok) {
+        const data = await deeplResponse.json();
+        if (data.translations && data.translations[0]) {
+          return data.translations[0].text;
         }
-      } catch (deeplError) {
-        console.warn('DeepL translation failed, trying fallback:', deeplError);
       }
     }
     
-    // Option 2: Use MyMemory (free, no API key required)
+    // Fallback to MyMemory if DeepL fails
+    const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${toLang}`);
+    const data = await response.json();
+    
+    if (data.responseData?.translatedText) {
+      return data.responseData.translatedText;
+    }
+    
+    return text; // Return original if translation fails
+  } catch (error) {
+    console.error('Interface translation error:', error);
+    return text;
+  }
+};
+
+// Message translation function (simplified, no loading states)
+const translateMessageText = async (text, fromLang, toLang) => {
+  if (!text || fromLang === toLang) return text;
+  
+  try {
+    // Use DeepL API for message translation
+    if (import.meta.env.VITE_DEEPL_API_KEY) {
+      const deeplResponse = await fetch('https://api-free.deepl.com/v2/translate', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `DeepL-Auth-Key ${import.meta.env.VITE_DEEPL_API_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          text: text,
+          source_lang: fromLang.toUpperCase(),
+          target_lang: toLang.toUpperCase()
+        })
+      });
+      
+      if (deeplResponse.ok) {
+        const data = await deeplResponse.json();
+        if (data.translations && data.translations[0]) {
+          return data.translations[0].text;
+        }
+      }
+    }
+    
+    // Fallback to MyMemory
     const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`);
     const data = await response.json();
     
     if (data.responseData?.translatedText) {
-      console.log('MyMemory translation successful');
       return data.responseData.translatedText;
     }
     
-    // Option 3: Use LibreTranslate (free, no API key required)
-    const libreResponse = await fetch('https://libretranslate.de/translate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        q: text,
-        source: fromLang,
-        target: toLang,
-        format: 'text'
-      })
-    });
-    
-    if (libreResponse.ok) {
-      const libreData = await libreResponse.json();
-      if (libreData.translatedText) {
-        console.log('LibreTranslate translation successful');
-        return libreData.translatedText;
-      }
-    }
-    
-    // If all APIs fail, return original text
-    console.warn('All translation APIs failed, returning original text');
     return text;
-    
   } catch (error) {
-    console.error('Translation error:', error);
-    return text; // Return original text if translation fails
+    console.error('Message translation error:', error);
+    return text;
   }
 };
 
@@ -102,82 +200,93 @@ export function useLanguage() {
 }
 
 export function LanguageProvider({ children }) {
-  const [language, setLanguage] = useState(() => localStorage.getItem("language") || "en");
+  const [interfaceLanguage, setInterfaceLanguage] = useState(() => localStorage.getItem("interfaceLanguage") || "en");
+  const [interfaceTranslations, setInterfaceTranslations] = useState(INTERFACE_TRANSLATIONS);
   const [translationCache, setTranslationCache] = useState({});
-  const [isTranslating, setIsTranslating] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem("language", language);
-  }, [language]);
+    localStorage.setItem("interfaceLanguage", interfaceLanguage);
+  }, [interfaceLanguage]);
 
-  const translate = async (text, fromLang, toLang, context = 'general') => {
-    if (!text || fromLang === toLang) return text;
+  // Initialize Urdu translations on first load
+  useEffect(() => {
+    const initializeUrduTranslations = async () => {
+      if (interfaceTranslations.ur && Object.keys(interfaceTranslations.ur).length === 0) {
+        const urduTranslations = {};
+        
+        for (const [key, englishText] of Object.entries(INTERFACE_TRANSLATIONS.en)) {
+          try {
+            const translated = await translateInterfaceText(englishText, 'ur');
+            urduTranslations[key] = translated;
+          } catch (error) {
+            urduTranslations[key] = englishText; // Fallback to English
+          }
+        }
+        
+        setInterfaceTranslations(prev => ({
+          ...prev,
+          ur: urduTranslations
+        }));
+      }
+    };
+
+    initializeUrduTranslations();
+  }, []);
+
+  // Interface translation function
+  const t = (key) => {
+    if (interfaceLanguage === 'en') {
+      return INTERFACE_TRANSLATIONS.en[key] || key;
+    }
     
-    const cacheKey = `${text}-${fromLang}-${toLang}-${context}`;
+    if (interfaceTranslations.ur[key]) {
+      return interfaceTranslations.ur[key];
+    }
+    
+    return INTERFACE_TRANSLATIONS.en[key] || key;
+  };
+
+  // Message translation function (no loading states)
+  const translateMessage = async (message, userLang) => {
+    if (message.content.language === userLang) return message.content.text;
+    
+    const cacheKey = `${message.content.text}-${message.content.language}-${userLang}`;
     if (translationCache[cacheKey]) {
       return translationCache[cacheKey];
     }
     
-    setIsTranslating(true);
-    try {
-      // Use the generic translation function
-      const translatedText = await translateText(text, fromLang, toLang);
-      setTranslationCache(prev => ({ ...prev, [cacheKey]: translatedText }));
-      return translatedText;
-    } catch (error) {
-      console.error('Translation error:', error);
-      return text; // Return original text if translation fails
-    } finally {
-      setIsTranslating(false);
-    }
-  };
-
-  const translateMessage = async (message, userLang) => {
-    if (message.content.language === userLang) return message.content.text;
-    return await translate(message.content.text, message.content.language, userLang, 'conversation');
+    const translatedText = await translateMessageText(message.content.text, message.content.language, userLang);
+    setTranslationCache(prev => ({ ...prev, [cacheKey]: translatedText }));
+    return translatedText;
   };
 
   const translateBatch = async (messages, targetLang) => {
     if (!messages || messages.length === 0) return [];
     
-    setIsTranslating(true);
-    try {
-      const translatedMessages = [];
-      
-      for (const message of messages) {
-        if (message.content.language !== targetLang) {
-          const translatedText = await translateText(message.content.text, message.content.language, targetLang);
-          translatedMessages.push({
-            messageId: message._id || message.id,
-            originalText: message.content.text,
-            translatedText,
-            originalLanguage: message.content.language,
-            targetLanguage: targetLang
-          });
-        } else {
-          translatedMessages.push({
-            messageId: message._id || message.id,
-            originalText: message.content.text,
-            translatedText: message.content.text,
-            originalLanguage: message.content.language,
-            targetLanguage: targetLang
-          });
-        }
+    const translatedMessages = [];
+    
+    for (const message of messages) {
+      if (message.content.language !== targetLang) {
+        const translatedText = await translateMessageText(message.content.text, message.content.language, targetLang);
+        translatedMessages.push({
+          messageId: message._id || message.id,
+          originalText: message.content.text,
+          translatedText,
+          originalLanguage: message.content.language,
+          targetLanguage: targetLang
+        });
+      } else {
+        translatedMessages.push({
+          messageId: message._id || message.id,
+          originalText: message.content.text,
+          translatedText: message.content.text,
+          originalLanguage: message.content.language,
+          targetLanguage: targetLang
+        });
       }
-      
-      return translatedMessages;
-    } catch (error) {
-      console.error('Batch translation error:', error);
-      return messages.map(msg => ({
-        messageId: msg._id || msg.id,
-        originalText: msg.content.text,
-        translatedText: msg.content.text,
-        originalLanguage: msg.content.language,
-        targetLanguage: targetLang
-      }));
-    } finally {
-      setIsTranslating(false);
     }
+    
+    return translatedMessages;
   };
 
   const clearTranslationCache = () => {
@@ -186,13 +295,13 @@ export function LanguageProvider({ children }) {
 
   return (
     <LanguageContext.Provider value={{ 
-      language, 
-      setLanguage, 
-      languages: LANGUAGES,
-      translate,
+      interfaceLanguage, 
+      setInterfaceLanguage, 
+      interfaceLanguages: INTERFACE_LANGUAGES,
+      messageLanguages: MESSAGE_LANGUAGES,
+      t, // Interface translation function
       translateMessage,
       translateBatch,
-      isTranslating,
       clearTranslationCache
     }}>
       {children}

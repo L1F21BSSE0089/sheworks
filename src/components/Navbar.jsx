@@ -3,7 +3,7 @@ import { FaHeart, FaShoppingCart, FaUser, FaComments, FaBell, FaBars, FaTimes, F
 import { useEffect, useState, useRef } from "react";
 import apiService from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { useLanguage, LANGUAGES } from "../context/LanguageContext";
+import { useLanguage, INTERFACE_LANGUAGES } from "../context/LanguageContext";
 import { useWishlist } from "../context/WishlistContext";
 
 const navLinks = [
@@ -18,7 +18,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, userType, logout } = useAuth();
   const [unread, setUnread] = useState(0);
-  const { language, setLanguage } = useLanguage();
+  const { interfaceLanguage, setInterfaceLanguage } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const { wishlist } = useWishlist();
   const menuRef = useRef(null);
@@ -155,11 +155,11 @@ export default function Navbar() {
             )}
             <select
               className="bg-gray-100 px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              value={language}
-              onChange={e => setLanguage(e.target.value)}
+              value={interfaceLanguage}
+              onChange={e => setInterfaceLanguage(e.target.value)}
               aria-label="Select language"
             >
-              {Object.entries(LANGUAGES).map(([code, lang]) => (
+              {Object.entries(INTERFACE_LANGUAGES).map(([code, lang]) => (
                 <option key={code} value={code}>
                   {lang.flag} {lang.nativeName}
                 </option>
@@ -377,11 +377,11 @@ export default function Navbar() {
                 <label className="text-sm font-medium text-gray-700">Language</label>
                 <select
                   className="bg-gray-100 px-4 py-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-colors"
-                  value={language}
-                  onChange={e => setLanguage(e.target.value)}
+                  value={interfaceLanguage}
+                  onChange={e => setInterfaceLanguage(e.target.value)}
                   aria-label="Select language"
                 >
-                  {Object.entries(LANGUAGES).map(([code, lang]) => (
+                  {Object.entries(INTERFACE_LANGUAGES).map(([code, lang]) => (
                     <option key={code} value={code}>
                       {lang.flag} {lang.nativeName}
                     </option>
