@@ -92,6 +92,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const googleSignup = async (googleData) => {
+    try {
+      setError(null);
+      const response = await apiService.googleSignup(googleData);
+      setUser(response.user);
+      setUserType('customer');
+      apiService.setToken(response.token);
+      return response;
+    } catch (error) {
+      setError(error.message);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await apiService.logout();
@@ -115,6 +129,7 @@ export const AuthProvider = ({ children }) => {
     error,
     login,
     register,
+    googleSignup,
     logout,
     updateUser,
     isAuthenticated: !!user,

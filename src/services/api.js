@@ -227,6 +227,13 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  async googleSignup(googleData) {
+    return this.request('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify(googleData),
+    });
+  }
 }
 
 // Create and export a singleton instance

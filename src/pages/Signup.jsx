@@ -19,7 +19,7 @@ export default function Signup() {
   const [category, setCategory] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { register } = useAuth();
+  const { register, googleSignup } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -89,24 +89,7 @@ export default function Signup() {
         googleId: payload.sub
       };
 
-      const result = await fetch(`${import.meta.env.VITE_API_URL}/auth/google`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(googleData),
-      });
-
-      const data = await result.json();
-
-      if (!result.ok) {
-        throw new Error(data.error || 'Google signup failed');
-      }
-
-      // Use AuthContext to set the user
-      apiService.setToken(data.token);
-      // You might need to update the AuthContext to handle Google users
-      // For now, we'll just navigate to home
+      await googleSignup(googleData);
       navigate("/");
     } catch (err) {
       setError(err.message || "Google signup failed");
