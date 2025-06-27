@@ -16,6 +16,8 @@ export default function ProductDetails({ showToast }) {
   const [reviewText, setReviewText] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -57,6 +59,22 @@ export default function ProductDetails({ showToast }) {
     }
   };
 
+  const nextImage = () => {
+    const images = product.images || [];
+    setSelectedImageIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    const images = product.images || [];
+    setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowLeft') prevImage();
+    if (e.key === 'ArrowRight') nextImage();
+    if (e.key === 'Escape') setShowImageModal(false);
+  };
+
   if (loading) return <Spinner />;
   if (error) return <div className="text-red-500 p-8">{error}</div>;
   if (!product) return <div className="text-gray-400 p-8">Product not found.</div>;
@@ -64,6 +82,7 @@ export default function ProductDetails({ showToast }) {
   return (
     <div className="px-4 md:px-8 py-8 max-w-5xl mx-auto">
       <div className="flex flex-col md:flex-row gap-8">
+        {/* Image Gallery Section */}
         <div className="md:w-1/2">
           {user && (
             <button
@@ -75,16 +94,120 @@ export default function ProductDetails({ showToast }) {
               <HeartIcon filled={isInWishlist(product._id)} className="w-8 h-8" />
             </button>
           )}
-          <img
-            src={product.images && product.images.length > 0 ? product.images[0].url : "/shop.webp"}
-            alt={product.name}
-            className="rounded w-full h-80 object-cover mb-4"
-          />
-          <div className="flex gap-2 flex-wrap">
-            {(product.images || []).slice(1).map((img, i) => (
-              <img key={i} src={img.url} alt={product.name} className="w-20 h-20 object-cover rounded border" />
-            ))}
+          
+          {/* Main Image Viewer */}
+          <div className="relative group">
+            <img
+              src={product.images && product.images.length > 0 ? product.images[selectedImageIndex].url : "/shop.webp"}
+              alt={product.name}
+              className="rounded-lg w-full h-96 object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+              onClick={() => setShowImageModal(true)}
+            />
+            
+            {/* Navigation Arrows (only show if multiple images) */}
+            {product.images && product.images.length > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-opacity-70"
+                  aria-label="Previous image"
+                >
+                  ←
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-opacity-70"
+                  aria-label="Next image"
+                >
+                  →
+                </button>
+              </>
+            )}
+            
+            {/* Image Counter */}
+            {product.images && product.images.length > 1 && (
+              <div className="absolute bottom-4 right-4 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
+                {selectedImageIndex + 1} / {product.images.length}
+              </div>
+            )}
           </div>
+
+          {/* Thumbnail Gallery */}
+          {product.images && product.images.length > 1 && (
+            <div className="mt-4">
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {product.images.map((img, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                      index === selectedImageIndex 
+                        ? 'border-primary scale-110 shadow-lg' 
+                        : 'border-gray-200 hover:border-gray-300 hover:scale-105'
+                    }`}
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.alt || product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Image Modal */}
+          {showImageModal && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+              onClick={() => setShowImageModal(false)}
+              onKeyDown={handleKeyDown}
+              tabIndex={0}
+            >
+              <div className="relative max-w-4xl max-h-full">
+                <img
+                  src={product.images && product.images.length > 0 ? product.images[selectedImageIndex].url : "/shop.webp"}
+                  alt={product.name}
+                  className="max-w-full max-h-full object-contain"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                
+                {/* Modal Navigation */}
+                {product.images && product.images.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                      className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70 transition-colors"
+                    >
+                      ←
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70 transition-colors"
+                    >
+                      →
+                    </button>
+                  </>
+                )}
+                
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowImageModal(false)}
+                  className="absolute top-4 right-4 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-colors"
+                >
+                  ✕
+                </button>
+                
+                {/* Image Counter in Modal */}
+                {product.images && product.images.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full">
+                    {selectedImageIndex + 1} / {product.images.length}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="md:w-1/2">
           <h1 className="text-2xl font-bold mb-2">{product.name}</h1>

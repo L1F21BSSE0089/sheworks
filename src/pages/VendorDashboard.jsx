@@ -133,7 +133,11 @@ export default function VendorDashboard() {
       category: product.category,
       price: { current: product.price.current },
       inventory: { stock: product.inventory.stock },
-      images: product.images || []
+      images: product.images ? product.images.map(img => ({
+        url: img.url,
+        alt: img.alt || product.name,
+        isPrimary: img.isPrimary || false
+      })) : []
     });
     setShowForm(true);
   };
@@ -167,12 +171,16 @@ export default function VendorDashboard() {
     }
     
     try {
-      // Ensure there's at least one image
+      // Prepare product data with images
       const productData = {
         ...form,
         price: { current: parseFloat(form.price.current) },
         inventory: { stock: parseInt(form.inventory.stock) },
-        images: form.images.length > 0 ? form.images : [{ url: '/shop.webp', alt: form.name, isPrimary: true }]
+        images: form.images.length > 0 ? form.images.map(img => ({
+          url: img.url,
+          alt: img.alt,
+          isPrimary: img.isPrimary
+        })) : [{ url: '/shop.webp', alt: form.name, isPrimary: true }]
       };
       
       if (editingId) {
@@ -188,6 +196,7 @@ export default function VendorDashboard() {
       setCategoryError("");
       setPriceError("");
       setStockError("");
+      setFormError(null);
     } catch (err) {
       // Handle server validation errors
       if (err.message && err.message.includes('category')) {
@@ -216,7 +225,69 @@ export default function VendorDashboard() {
   };
 
   const handleImageUpload = (e) => {
-    // Implementation of handleImageUpload
+    const files = Array.from(e.target.files);
+    
+    // Validate file types
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const invalidFiles = files.filter(file => !validTypes.includes(file.type));
+    
+    if (invalidFiles.length > 0) {
+      setFormError('Please upload only JPG, PNG, or WebP images.');
+      return;
+    }
+    
+    // Validate file sizes (max 5MB per image)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    
+    if (oversizedFiles.length > 0) {
+      setFormError('Images must be smaller than 5MB each.');
+      return;
+    }
+    
+    // Convert files to base64 for preview and storage
+    const imagePromises = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve({
+            url: e.target.result,
+            alt: file.name,
+            isPrimary: form.images.length === 0, // First image is primary
+            file: file
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+    
+    Promise.all(imagePromises).then(newImages => {
+      setForm(prev => ({
+        ...prev,
+        images: [...prev.images, ...newImages]
+      }));
+      setFormError(null);
+    });
+  };
+
+  const removeImage = (index) => {
+    setForm(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index).map((img, i) => ({
+        ...img,
+        isPrimary: i === 0 // Make first image primary if we remove the primary one
+      }))
+    }));
+  };
+
+  const setPrimaryImage = (index) => {
+    setForm(prev => ({
+      ...prev,
+      images: prev.images.map((img, i) => ({
+        ...img,
+        isPrimary: i === index
+      }))
+    }));
   };
 
   const markAsShipped = async (orderId) => {
@@ -354,12 +425,53 @@ export default function VendorDashboard() {
             <input 
               type="file" 
               accept="image/*" 
+              multiple
               className="bg-gray-100 p-2 rounded w-full" 
               onChange={handleImageUpload} 
             />
-            <p className="text-xs text-gray-500 mt-1">Upload product images (optional - default image will be used if none provided)</p>
-            {form.images && form.images[0] && (
-              <img src={form.images[0].url || form.images[0]} alt="Preview" className="h-24 mt-2 rounded" />
+            <p className="text-xs text-gray-500 mt-1">Upload product images (JPG, PNG, WebP - max 5MB each)</p>
+            
+            {/* Image Previews */}
+            {form.images.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {form.images.map((img, index) => (
+                    <div key={index} className="relative group">
+                      <img 
+                        src={img.url} 
+                        alt={img.alt} 
+                        className={`w-full h-24 object-cover rounded border-2 ${img.isPrimary ? 'border-primary' : 'border-gray-200'}`}
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                        {!img.isPrimary && (
+                          <button
+                            type="button"
+                            onClick={() => setPrimaryImage(index)}
+                            className="bg-blue-500 text-white p-1 rounded text-xs"
+                            title="Set as primary"
+                          >
+                            ⭐
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="bg-red-500 text-white p-1 rounded text-xs"
+                          title="Remove image"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {img.isPrimary && (
+                        <div className="absolute top-1 left-1 bg-primary text-white text-xs px-1 rounded">
+                          Primary
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
           
