@@ -400,12 +400,12 @@ export default function Home({ showToast }) {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {products.length === 0 ? (
+              {filtered.length === 0 ? (
                 <div className="col-span-full text-center py-8 text-gray-400">
                   <p className="text-lg font-semibold mb-2">No products found</p>
                   <p className="text-sm">Please check back later or contact support.</p>
                 </div>
-              ) : products.slice(0, 8).map(product => (
+              ) : filtered.slice(0, 8).map(product => (
                 <Link to={`/products/${product._id}`} key={product._id} className="bg-white rounded-lg shadow p-4 w-full block hover:shadow-lg transition-shadow relative">
                   <button
                     className="absolute top-2 right-2 z-10 text-primary hover:text-red-500 focus:outline-none"
@@ -469,9 +469,9 @@ export default function Home({ showToast }) {
           )}
           
           {/* Show total count */}
-          {products.length > 0 && (
+          {filtered.length > 0 && (
             <div className="text-center mt-4 text-gray-600">
-              Showing {products.length} products
+              Showing {filtered.length} of {products.length} products
             </div>
           )}
         </section>
