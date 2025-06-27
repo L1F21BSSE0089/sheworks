@@ -10,7 +10,7 @@ import Signup from "./pages/Signup";
 import Messages from "./pages/Messages";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import VendorDashboard from "./pages/VendorDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -49,35 +49,33 @@ export default function App() {
   }, [userType, user]);
 
   return (
-    <AuthProvider>
-      <WishlistProvider>
-        <CartProvider>
-          <div className="bg-white min-h-screen flex flex-col">
-            <Navbar />
-            <main className="flex-1">
-              <Routes>
-                <Route path="/" element={<Home showToast={showToast} />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/account" element={<PrivateRoute><Account /></PrivateRoute>} />
-                <Route path="/cart" element={<PrivateRoute><Cart showToast={showToast} /></PrivateRoute>} />
-                <Route path="/checkout" element={<PrivateRoute><Checkout showToast={showToast} /></PrivateRoute>} />
-                <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
-                <Route path="/vendor-dashboard" element={userType === 'vendor' ? <VendorDashboard /> : <Navigate to="/" />} />
-                <Route path="/admin-dashboard" element={userType === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} />
-                <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
-                <Route path="/products/:id" element={<ProductDetails showToast={showToast} />} />
-                <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <Footer />
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-          </div>
-        </CartProvider>
-      </WishlistProvider>
-    </AuthProvider>
+    <WishlistProvider>
+      <CartProvider>
+        <div className="bg-white min-h-screen flex flex-col">
+          <Navbar />
+          <main className="flex-1">
+            <Routes>
+              <Route path="/" element={<Home showToast={showToast} />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/account" element={<PrivateRoute><Account /></PrivateRoute>} />
+              <Route path="/cart" element={<PrivateRoute><Cart showToast={showToast} /></PrivateRoute>} />
+              <Route path="/checkout" element={<PrivateRoute><Checkout showToast={showToast} /></PrivateRoute>} />
+              <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
+              <Route path="/vendor-dashboard" element={userType === 'vendor' ? <VendorDashboard /> : <Navigate to="/" />} />
+              <Route path="/admin-dashboard" element={userType === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} />
+              <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+              <Route path="/products/:id" element={<ProductDetails showToast={showToast} />} />
+              <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+          <Footer />
+          {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        </div>
+      </CartProvider>
+    </WishlistProvider>
   );
 }
