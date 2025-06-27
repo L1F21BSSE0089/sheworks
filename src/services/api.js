@@ -1,9 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Debug logging
-console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
-console.log('API_BASE_URL:', API_BASE_URL);
-
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
@@ -44,12 +40,7 @@ class ApiService {
     };
 
     try {
-      console.log('Making request to:', url);
       const response = await fetch(url, config);
-      
-      // Log response details for debugging
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
       
       // Check if response is JSON
       const contentType = response.headers.get('content-type');
