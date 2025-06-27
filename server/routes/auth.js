@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Vendor = require('../models/Vendor');
+const mongoose = require('mongoose');
+const Product = require('../models/Product');
 
 const router = express.Router();
 
@@ -443,67 +445,48 @@ router.post('/logout', verifyToken, (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
-// Wishlist routes
+// Get current user's wishlist
 router.get('/users/me/wishlist', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).populate('wishlist.product');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ wishlist: user.wishlist });
-  } catch (error) {
-    console.error('Get wishlist error:', error);
+  } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-router.post('/users/me/wishlist/:productId', verifyToken, async (req, res) => {
+// Add product to wishlist
+router.post('/users/me/wishlist', verifyToken, async (req, res) => {
   try {
-    const { productId } = req.params;
+    const { productId } = req.body;
+    if (!mongoose.Types.ObjectId.isValid(productId)) return res.status(400).json({ error: 'Invalid product ID' });
     const user = await User.findById(req.user.userId);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Check if product already in wishlist
-    const existingItem = user.wishlist.find(item => item.product.toString() === productId);
-    if (existingItem) {
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.wishlist.some(item => item.product.toString() === productId)) {
       return res.status(400).json({ error: 'Product already in wishlist' });
     }
-
     user.wishlist.push({ product: productId });
     await user.save();
-    
-    res.json({ message: 'Product added to wishlist' });
-  } catch (error) {
-    console.error('Add to wishlist error:', error);
+    res.json({ wishlist: user.wishlist });
+  } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
+// Remove product from wishlist
 router.delete('/users/me/wishlist/:productId', verifyToken, async (req, res) => {
   try {
     const { productId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(productId)) return res.status(400).json({ error: 'Invalid product ID' });
     const user = await User.findById(req.user.userId);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
+    if (!user) return res.status(404).json({ error: 'User not found' });
     user.wishlist = user.wishlist.filter(item => item.product.toString() !== productId);
     await user.save();
-    
-    res.json({ message: 'Product removed from wishlist' });
-  } catch (error) {
-    console.error('Remove from wishlist error:', error);
+    res.json({ wishlist: user.wishlist });
+  } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
-});
-
-router.get('/users/me/wishlist', (req, res) => {
-  // Optionally, check authentication here if needed
-  res.json({ wishlist: [] });
 });
 
 module.exports = { router, verifyToken }; 
