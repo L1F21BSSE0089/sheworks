@@ -179,12 +179,6 @@ export default function Home({ showToast }) {
 
   return (
     <div>
-      {/* Test section to verify Tailwind CSS is working */}
-      <div className="bg-red-500 text-white p-4 text-center">
-        <h1 className="text-2xl font-bold">Tailwind CSS Test</h1>
-        <p>If you can see this red box with white text, Tailwind CSS is working!</p>
-      </div>
-      
       {/* Filter Sidebar (collapsible on mobile) */}
       <div className="flex flex-col md:flex-row gap-8 px-4 md:px-8 py-8">
         <aside className={`w-full md:w-1/5 mb-6 md:mb-0 ${showFilters ? '' : 'hidden md:block'}`}> 

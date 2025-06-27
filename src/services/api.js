@@ -39,11 +39,24 @@ class ApiService {
       ...options,
     };
 
+    console.log('=== API REQUEST ===');
+    console.log('URL:', url);
+    console.log('Method:', options.method || 'GET');
+    console.log('Headers:', config.headers);
+    console.log('Body:', options.body || 'No body');
+
     try {
       const response = await fetch(url, config);
       
+      console.log('=== API RESPONSE ===');
+      console.log('Status:', response.status);
+      console.log('Status Text:', response.statusText);
+      console.log('Headers:', Object.fromEntries(response.headers.entries()));
+      
       // Check if response is JSON
       const contentType = response.headers.get('content-type');
+      console.log('Content-Type:', contentType);
+      
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
         console.error('Non-JSON response received:', text.substring(0, 200));
@@ -51,14 +64,19 @@ class ApiService {
       }
       
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (!response.ok) {
+        console.error('Response not OK:', data);
         throw new Error(data.error || 'Something went wrong');
       }
 
+      console.log('=== API REQUEST SUCCESS ===');
       return data;
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('=== API REQUEST ERROR ===');
+      console.error('Error:', error);
+      console.error('Error message:', error.message);
       throw error;
     }
   }
