@@ -23,9 +23,14 @@ const verifyToken = (req, res, next) => {
 // Get all products
 router.get('/', async (req, res) => {
   try {
+    console.log('=== GET PRODUCTS START ===');
     const products = await Product.find().populate('vendor', 'businessName');
+    console.log('Found products:', products.length);
+    console.log('=== GET PRODUCTS SUCCESS ===');
     res.json({ products });
   } catch (err) {
+    console.error('=== GET PRODUCTS ERROR ===');
+    console.error('Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -55,7 +60,8 @@ router.post('/', verifyToken, [
   try {
     console.log('=== PRODUCT CREATION START ===');
     console.log('User:', req.user);
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Images count:', req.body.images ? req.body.images.length : 0);
     
     if (req.user.userType !== 'vendor') {
       console.log('Access denied: User is not a vendor');
@@ -82,9 +88,24 @@ router.post('/', verifyToken, [
     }
     
     console.log('Vendor found:', vendor.businessName);
-    console.log('Creating product with data:', { ...req.body, vendor: vendor._id });
     
-    const product = new Product({ ...req.body, vendor: vendor._id });
+    // Clean up the request body to ensure it matches the schema
+    const productData = {
+      name: req.body.name,
+      description: req.body.description,
+      category: req.body.category,
+      price: req.body.price,
+      inventory: req.body.inventory,
+      images: req.body.images || [],
+      vendor: vendor._id
+    };
+    
+    console.log('Creating product with data:', {
+      ...productData,
+      images: productData.images.map(img => ({ ...img, url: img.url ? img.url.substring(0, 50) + '...' : 'no url' }))
+    });
+    
+    const product = new Product(productData);
     await product.save();
     
     console.log('Product created successfully:', product._id);
@@ -361,7 +382,11 @@ router.get('/seed', async (req, res) => {
         description: 'Beautiful handcrafted pearl necklace perfect for any occasion',
         category: 'Necklaces',
         price: { current: 89.99, original: 120.00 },
-        images: ['necklace.png'],
+        images: [{
+          url: '/necklace.png',
+          alt: 'Elegant Pearl Necklace',
+          isPrimary: true
+        }],
         inventory: { stock: 15, sku: 'NECK001' },
         isActive: true,
         isFeatured: true,
@@ -372,7 +397,11 @@ router.get('/seed', async (req, res) => {
         description: 'Classic diamond stud earrings with brilliant cut stones',
         category: 'Earrings',
         price: { current: 299.99, original: 399.00 },
-        images: ['earring.png'],
+        images: [{
+          url: '/earring.png',
+          alt: 'Diamond Stud Earrings',
+          isPrimary: true
+        }],
         inventory: { stock: 8, sku: 'EARR001' },
         isActive: true,
         isFeatured: true,
@@ -383,7 +412,11 @@ router.get('/seed', async (req, res) => {
         description: 'Traditional 18k gold wedding ring with elegant design',
         category: 'Rings',
         price: { current: 599.99, original: 750.00 },
-        images: ['ring.png'],
+        images: [{
+          url: '/ring.png',
+          alt: 'Gold Wedding Ring',
+          isPrimary: true
+        }],
         inventory: { stock: 12, sku: 'RING001' },
         isActive: true,
         isFeatured: true,
@@ -394,7 +427,11 @@ router.get('/seed', async (req, res) => {
         description: 'Delicate silver bracelet with intricate patterns',
         category: 'Bracelets',
         price: { current: 45.99, original: 65.00 },
-        images: ['bracelet.png'],
+        images: [{
+          url: '/bracelet.png',
+          alt: 'Silver Bracelet',
+          isPrimary: true
+        }],
         inventory: { stock: 20, sku: 'BRAC001' },
         isActive: true,
         isFeatured: false,
@@ -405,7 +442,11 @@ router.get('/seed', async (req, res) => {
         description: 'Premium luxury watch with leather strap',
         category: 'Watches',
         price: { current: 899.99, original: 1200.00 },
-        images: ['watch.png'],
+        images: [{
+          url: '/watch.png',
+          alt: 'Luxury Watch',
+          isPrimary: true
+        }],
         inventory: { stock: 5, sku: 'WATCH001' },
         isActive: true,
         isFeatured: true,
@@ -469,7 +510,11 @@ router.post('/seed', async (req, res) => {
         description: 'Beautiful handcrafted pearl necklace perfect for any occasion',
         category: 'Necklaces',
         price: { current: 89.99, original: 120.00 },
-        images: ['necklace.png'],
+        images: [{
+          url: '/necklace.png',
+          alt: 'Elegant Pearl Necklace',
+          isPrimary: true
+        }],
         inventory: { stock: 15, sku: 'NECK001' },
         isActive: true,
         isFeatured: true,
@@ -480,7 +525,11 @@ router.post('/seed', async (req, res) => {
         description: 'Classic diamond stud earrings with brilliant cut stones',
         category: 'Earrings',
         price: { current: 299.99, original: 399.00 },
-        images: ['earring.png'],
+        images: [{
+          url: '/earring.png',
+          alt: 'Diamond Stud Earrings',
+          isPrimary: true
+        }],
         inventory: { stock: 8, sku: 'EARR001' },
         isActive: true,
         isFeatured: true,
@@ -491,7 +540,11 @@ router.post('/seed', async (req, res) => {
         description: 'Traditional 18k gold wedding ring with elegant design',
         category: 'Rings',
         price: { current: 599.99, original: 750.00 },
-        images: ['ring.png'],
+        images: [{
+          url: '/ring.png',
+          alt: 'Gold Wedding Ring',
+          isPrimary: true
+        }],
         inventory: { stock: 12, sku: 'RING001' },
         isActive: true,
         isFeatured: true,
@@ -502,7 +555,11 @@ router.post('/seed', async (req, res) => {
         description: 'Delicate silver bracelet with intricate patterns',
         category: 'Bracelets',
         price: { current: 45.99, original: 65.00 },
-        images: ['bracelet.png'],
+        images: [{
+          url: '/bracelet.png',
+          alt: 'Silver Bracelet',
+          isPrimary: true
+        }],
         inventory: { stock: 20, sku: 'BRAC001' },
         isActive: true,
         isFeatured: false,
@@ -513,7 +570,11 @@ router.post('/seed', async (req, res) => {
         description: 'Premium luxury watch with leather strap',
         category: 'Watches',
         price: { current: 899.99, original: 1200.00 },
-        images: ['watch.png'],
+        images: [{
+          url: '/watch.png',
+          alt: 'Luxury Watch',
+          isPrimary: true
+        }],
         inventory: { stock: 5, sku: 'WATCH001' },
         isActive: true,
         isFeatured: true,
@@ -526,6 +587,40 @@ router.post('/seed', async (req, res) => {
   } catch (error) {
     console.error('Seed error:', error);
     res.status(500).json({ error: 'Failed to seed products' });
+  }
+});
+
+// Test endpoint to create a simple product
+router.post('/test-create', verifyToken, async (req, res) => {
+  try {
+    console.log('=== TEST PRODUCT CREATION ===');
+    
+    if (req.user.userType !== 'vendor') {
+      return res.status(403).json({ error: 'Only vendors can create products' });
+    }
+    
+    const vendor = await Vendor.findById(req.user.userId);
+    if (!vendor) {
+      return res.status(404).json({ error: 'Vendor not found' });
+    }
+    
+    const testProduct = new Product({
+      name: 'Test Product',
+      description: 'A test product',
+      category: 'test',
+      price: { current: 10.00 },
+      inventory: { stock: 5 },
+      vendor: vendor._id,
+      images: [{ url: '/shop.webp', alt: 'Test Product', isPrimary: true }]
+    });
+    
+    await testProduct.save();
+    console.log('Test product created:', testProduct._id);
+    
+    res.status(201).json({ product: testProduct });
+  } catch (err) {
+    console.error('Test product creation error:', err);
+    res.status(500).json({ error: 'Test failed', details: err.message });
   }
 });
 

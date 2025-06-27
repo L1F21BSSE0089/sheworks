@@ -171,25 +171,36 @@ export default function VendorDashboard() {
     }
     
     try {
-      // Prepare product data with images
+      // Prepare product data with images - simplify to avoid issues
       const productData = {
-        ...form,
+        name: form.name,
+        description: form.description,
+        category: form.category,
         price: { current: parseFloat(form.price.current) },
         inventory: { stock: parseInt(form.inventory.stock) },
-        images: form.images.length > 0 ? form.images.map(img => ({
+        images: form.images.length > 0 ? form.images.map((img, index) => ({
           url: img.url,
-          alt: img.alt,
-          isPrimary: img.isPrimary
+          alt: img.alt || form.name,
+          isPrimary: index === 0 // First image is always primary
         })) : [{ url: '/shop.webp', alt: form.name, isPrimary: true }]
       };
       
+      console.log('Submitting product data:', {
+        ...productData,
+        images: productData.images.map(img => ({ ...img, url: img.url.substring(0, 50) + '...' })) // Log truncated URLs
+      });
+      
       if (editingId) {
         const res = await apiService.updateProduct(editingId, productData);
+        console.log('Update response:', res);
         setProducts(products => products.map(p => p._id === editingId ? res.product : p));
       } else {
         const res = await apiService.createProduct(productData);
+        console.log('Create response:', res);
         setProducts(products => [...products, res.product]);
       }
+      
+      // Close form and reset
       setShowForm(false);
       setEditingId(null);
       setForm({ name: "", description: "", category: "", price: { current: "" }, inventory: { stock: "" }, images: [] });
@@ -197,7 +208,26 @@ export default function VendorDashboard() {
       setPriceError("");
       setStockError("");
       setFormError(null);
+      
+      // Show success message
+      if (showToast) {
+        showToast(editingId ? "Product updated successfully!" : "Product added successfully!", "success");
+      }
+      
+      // Refresh products list to ensure everything is up to date
+      setTimeout(() => {
+        apiService.getProducts()
+          .then(res => {
+            const vendorProducts = (res.products || []).filter(p => p.vendor?._id === user._id);
+            setProducts(vendorProducts);
+          })
+          .catch(err => {
+            console.error('Error refreshing products:', err);
+          });
+      }, 500);
+      
     } catch (err) {
+      console.error('Product save error:', err);
       // Handle server validation errors
       if (err.message && err.message.includes('category')) {
         setCategoryError("Invalid category. Please enter a valid category name.");
@@ -344,164 +374,180 @@ export default function VendorDashboard() {
         </div>
       )}
       {showForm && (
-        <form className="bg-white rounded shadow p-4 md:p-6 max-w-lg" onSubmit={handleSubmit}>
-          <h2 className="text-xl font-bold mb-4">{editingId ? "Edit Product" : "Add Product"}</h2>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
-            <input 
-              className="bg-gray-100 p-2 rounded w-full" 
-              name="name" 
-              placeholder="Enter product name (e.g., Diamond Ring)" 
-              value={form.name} 
-              onChange={handleFormChange} 
-              required 
-            />
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-            <textarea 
-              className="bg-gray-100 p-2 rounded w-full h-20 resize-none" 
-              name="description" 
-              placeholder="Describe your product in detail..." 
-              value={form.description} 
-              onChange={handleFormChange} 
-              required 
-            />
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-            <input 
-              className="bg-gray-100 p-2 rounded w-full" 
-              name="category" 
-              placeholder="Enter category (e.g., Rings, Necklaces, Watches)" 
-              value={form.category} 
-              onChange={handleFormChange} 
-              required 
-            />
-            {categoryError && <div className="text-red-500 text-sm mt-1">{categoryError}</div>}
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Price (PKR) *</label>
-            <div className="relative">
-              <span className="absolute left-3 top-2 text-gray-500">₨</span>
-              <input 
-                className="bg-gray-100 p-2 rounded w-full pl-8" 
-                name="price.current" 
-                placeholder="0.00" 
-                type="number" 
-                step="0.01" 
-                min="0.01" 
-                max="999999" 
-                value={form.price.current} 
-                onChange={handleFormChange} 
-                required 
-              />
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl p-4 md:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-4 duration-300">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">{editingId ? "Edit Product" : "Add Product"}</h2>
+              <button
+                type="button"
+                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                  setForm({ name: "", description: "", category: "", price: { current: "" }, inventory: { stock: "" }, images: [] });
+                  setCategoryError("");
+                  setPriceError("");
+                  setStockError("");
+                  setFormError(null);
+                }}
+                disabled={formLoading}
+              >
+                ×
+              </button>
             </div>
-            {priceError && <div className="text-red-500 text-sm mt-1">{priceError}</div>}
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity *</label>
-            <input 
-              className="bg-gray-100 p-2 rounded w-full" 
-              name="inventory.stock" 
-              placeholder="Enter available quantity (e.g., 10)" 
-              type="number" 
-              min="0" 
-              max="99999" 
-              value={form.inventory.stock} 
-              onChange={handleFormChange} 
-              required 
-            />
-            {stockError && <div className="text-red-500 text-sm mt-1">{stockError}</div>}
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Product Images</label>
-            <input 
-              type="file" 
-              accept="image/*" 
-              multiple
-              className="bg-gray-100 p-2 rounded w-full" 
-              onChange={handleImageUpload} 
-            />
-            <p className="text-xs text-gray-500 mt-1">Upload product images (JPG, PNG, WebP - max 5MB each)</p>
-            
-            {/* Image Previews */}
-            {form.images.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {form.images.map((img, index) => (
-                    <div key={index} className="relative group">
-                      <img 
-                        src={img.url} 
-                        alt={img.alt} 
-                        className={`w-full h-24 object-cover rounded border-2 ${img.isPrimary ? 'border-primary' : 'border-gray-200'}`}
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                        {!img.isPrimary && (
-                          <button
-                            type="button"
-                            onClick={() => setPrimaryImage(index)}
-                            className="bg-blue-500 text-white p-1 rounded text-xs"
-                            title="Set as primary"
-                          >
-                            ⭐
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="bg-red-500 text-white p-1 rounded text-xs"
-                          title="Remove image"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      {img.isPrimary && (
-                        <div className="absolute top-1 left-1 bg-primary text-white text-xs px-1 rounded">
-                          Primary
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
+                <input 
+                  className="bg-gray-100 p-2 rounded w-full" 
+                  name="name" 
+                  placeholder="Enter product name (e.g., Diamond Ring)" 
+                  value={form.name} 
+                  onChange={handleFormChange} 
+                  required 
+                />
               </div>
-            )}
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                <textarea 
+                  className="bg-gray-100 p-2 rounded w-full h-20 resize-none" 
+                  name="description" 
+                  placeholder="Describe your product in detail..." 
+                  value={form.description} 
+                  onChange={handleFormChange} 
+                  required 
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                <input 
+                  className="bg-gray-100 p-2 rounded w-full" 
+                  name="category" 
+                  placeholder="Enter category (e.g., Rings, Necklaces, Watches)" 
+                  value={form.category} 
+                  onChange={handleFormChange} 
+                  required 
+                />
+                {categoryError && <div className="text-red-500 text-sm mt-1">{categoryError}</div>}
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price (PKR) *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-gray-500">₨</span>
+                  <input 
+                    className="bg-gray-100 p-2 rounded w-full pl-8" 
+                    name="price.current" 
+                    placeholder="0.00" 
+                    type="number" 
+                    step="0.01" 
+                    min="0.01" 
+                    max="999999" 
+                    value={form.price.current} 
+                    onChange={handleFormChange} 
+                    required 
+                  />
+                </div>
+                {priceError && <div className="text-red-500 text-sm mt-1">{priceError}</div>}
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity *</label>
+                <input 
+                  className="bg-gray-100 p-2 rounded w-full" 
+                  name="inventory.stock" 
+                  placeholder="Enter available quantity (e.g., 10)" 
+                  type="number" 
+                  min="0" 
+                  max="99999" 
+                  value={form.inventory.stock} 
+                  onChange={handleFormChange} 
+                  required 
+                />
+                {stockError && <div className="text-red-500 text-sm mt-1">{stockError}</div>}
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Images</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  multiple
+                  className="bg-gray-100 p-2 rounded w-full" 
+                  onChange={handleImageUpload} 
+                />
+                <p className="text-xs text-gray-500 mt-1">Upload product images (JPG, PNG, WebP - max 5MB each)</p>
+                
+                {/* Image Previews */}
+                {form.images.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {form.images.map((img, index) => (
+                        <div key={index} className="relative group">
+                          <img 
+                            src={img.url} 
+                            alt={img.alt} 
+                            className={`w-full h-24 object-cover rounded border-2 ${img.isPrimary ? 'border-primary' : 'border-gray-200'}`}
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                            {!img.isPrimary && (
+                              <button
+                                type="button"
+                                onClick={() => setPrimaryImage(index)}
+                                className="bg-blue-500 text-white p-1 rounded text-xs"
+                                title="Set as primary"
+                              >
+                                ⭐
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              className="bg-red-500 text-white p-1 rounded text-xs"
+                              title="Remove image"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          {img.isPrimary && (
+                            <div className="absolute top-1 left-1 bg-primary text-white text-xs px-1 rounded">
+                              Primary
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {formError && <div className="text-red-500 text-sm mb-4">{formError}</div>}
+              
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="bg-primary text-white px-4 py-2 rounded flex-1 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
+                  disabled={formLoading}
+                >
+                  {formLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {editingId ? "Updating..." : "Adding..."}
+                    </span>
+                  ) : (
+                    editingId ? "Update Product" : "Add Product"
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
-          
-          {formError && <div className="text-red-500 text-sm mb-4">{formError}</div>}
-          
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="bg-primary text-white px-4 py-2 rounded flex-1 disabled:opacity-60"
-              disabled={formLoading}
-            >
-              {formLoading ? "Saving..." : (editingId ? "Update Product" : "Add Product")}
-            </button>
-            <button
-              type="button"
-              className="bg-gray-300 text-gray-700 px-4 py-2 rounded"
-              onClick={() => {
-                setShowForm(false);
-                setEditingId(null);
-                setForm({ name: "", description: "", category: "", price: { current: "" }, inventory: { stock: "" }, images: [] });
-                setCategoryError("");
-                setPriceError("");
-                setStockError("");
-                setFormError(null);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+        </div>
       )}
       <h2 className="text-xl font-bold mt-10 mb-4">My Orders</h2>
       {ordersLoading ? <Spinner /> : ordersError ? <div className="text-red-500">{ordersError}</div> : (

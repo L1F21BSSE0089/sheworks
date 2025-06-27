@@ -14,7 +14,11 @@ const sampleProducts = [
       current: 89.99,
       original: 120.00
     },
-    images: ['necklace.png'],
+    images: [{
+      url: '/necklace.png',
+      alt: 'Elegant Pearl Necklace',
+      isPrimary: true
+    }],
     inventory: {
       stock: 15,
       sku: 'NECK001'
@@ -30,7 +34,11 @@ const sampleProducts = [
       current: 299.99,
       original: 399.00
     },
-    images: ['earring.png'],
+    images: [{
+      url: '/earring.png',
+      alt: 'Diamond Stud Earrings',
+      isPrimary: true
+    }],
     inventory: {
       stock: 8,
       sku: 'EARR001'
@@ -46,7 +54,11 @@ const sampleProducts = [
       current: 599.99,
       original: 750.00
     },
-    images: ['ring.png'],
+    images: [{
+      url: '/ring.png',
+      alt: 'Gold Wedding Ring',
+      isPrimary: true
+    }],
     inventory: {
       stock: 12,
       sku: 'RING001'
@@ -62,7 +74,11 @@ const sampleProducts = [
       current: 45.99,
       original: 65.00
     },
-    images: ['bracelet.png'],
+    images: [{
+      url: '/bracelet.png',
+      alt: 'Silver Bracelet',
+      isPrimary: true
+    }],
     inventory: {
       stock: 20,
       sku: 'BRAC001'
@@ -78,7 +94,11 @@ const sampleProducts = [
       current: 899.99,
       original: 1200.00
     },
-    images: ['watch.png'],
+    images: [{
+      url: '/watch.png',
+      alt: 'Luxury Watch',
+      isPrimary: true
+    }],
     inventory: {
       stock: 5,
       sku: 'WATCH001'
