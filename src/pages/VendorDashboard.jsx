@@ -26,9 +26,18 @@ export default function VendorDashboard() {
   useEffect(() => {
     if (userType !== "vendor") return;
     setLoading(true);
-    apiService.getProducts()
-      .then(res => setProducts((res.products || []).filter(p => p.vendor?._id === user._id)))
-      .catch(err => setError(err.message))
+    setError(null);
+    
+    // Use the new fast vendor products endpoint
+    apiService.getVendorProducts()
+      .then(res => {
+        console.log('Vendor products loaded:', res.products?.length || 0);
+        setProducts(res.products || []);
+      })
+      .catch(err => {
+        console.error('Error loading vendor products:', err);
+        setError(err.message);
+      })
       .finally(() => setLoading(false));
   }, [user, userType]);
 

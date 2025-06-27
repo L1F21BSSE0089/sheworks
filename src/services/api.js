@@ -188,6 +188,10 @@ class ApiService {
     return this.request('/products');
   }
 
+  async getVendorProducts() {
+    return this.request('/products/vendor/my');
+  }
+
   async getProduct(id) {
     return this.request(`/products/${id}`);
   }
