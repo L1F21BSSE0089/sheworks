@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Account from "./pages/Account";
@@ -22,6 +24,9 @@ import NotFound from "./pages/NotFound";
 import ProductDetails from "./pages/ProductDetails";
 import { WishlistProvider } from "./context/WishlistContext";
 import Wishlist from "./pages/Wishlist";
+
+// Initialize Stripe
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_stripe_publishable_key');
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -62,7 +67,13 @@ export default function App() {
               <Route path="/signup" element={<Signup />} />
               <Route path="/account" element={<PrivateRoute><Account /></PrivateRoute>} />
               <Route path="/cart" element={<PrivateRoute><Cart showToast={showToast} /></PrivateRoute>} />
-              <Route path="/checkout" element={<PrivateRoute><Checkout showToast={showToast} /></PrivateRoute>} />
+              <Route path="/checkout" element={
+                <PrivateRoute>
+                  <Elements stripe={stripePromise}>
+                    <Checkout showToast={showToast} />
+                  </Elements>
+                </PrivateRoute>
+              } />
               <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
               <Route path="/vendor-dashboard" element={userType === 'vendor' ? <VendorDashboard /> : <Navigate to="/" />} />
               <Route path="/admin-dashboard" element={userType === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} />
