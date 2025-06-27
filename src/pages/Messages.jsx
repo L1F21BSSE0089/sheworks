@@ -249,10 +249,14 @@ export default function Messages() {
   const translateAllMessages = async (messagesToTranslate, targetLang) => {
     if (messagesToTranslate.length === 0) return;
     
+    console.log('🌐 Starting translation of', messagesToTranslate.length, 'messages to', targetLang);
+    console.log('🌐 DeepL API Key available:', !!import.meta.env.VITE_DEEPL_API_KEY);
+    
     setTranslationLoading(true);
     try {
       console.log('🌐 Translating messages to:', targetLang);
       const translated = await deeplTranslationService.translateMessages(messagesToTranslate, targetLang);
+      console.log('✅ Translation completed, results:', translated);
       setTranslatedMessages(translated);
       console.log('✅ Translation completed');
     } catch (error) {
@@ -367,6 +371,8 @@ export default function Messages() {
   const handleLanguageChange = async (newLanguage) => {
     if (newLanguage === selectedLanguage) return;
     
+    console.log('🌐 Language changed from', selectedLanguage, 'to', newLanguage);
+    
     // Translate the current message if it exists
     if (newMessage.trim()) {
       try {
@@ -379,8 +385,15 @@ export default function Messages() {
       }
     }
     
+    // Update the selected language
     setSelectedLanguage(newLanguage);
     setShowLanguageSelector(false);
+    
+    // Translate all existing messages in the conversation
+    if (messages.length > 0) {
+      console.log('🌐 Translating all messages to:', newLanguage);
+      await translateAllMessages(messages, newLanguage);
+    }
   };
 
   const getLanguageName = (code) => {
