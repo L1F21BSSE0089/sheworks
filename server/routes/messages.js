@@ -27,9 +27,14 @@ const verifyToken = (req, res, next) => {
 const translateText = async (text, fromLang, toLang) => {
   if (!text || fromLang === toLang) return text;
   
+  console.log('🌐 Backend translateText called:', { text, fromLang, toLang });
+  console.log('🔑 DeepL API Key available:', !!process.env.DEEPL_API_KEY);
+  
   try {
     // Use DeepL API for translation
     if (process.env.DEEPL_API_KEY) {
+      console.log('📤 Calling DeepL API...');
+      
       const deeplResponse = await fetch('https://api-free.deepl.com/v2/translate', {
         method: 'POST',
         headers: {
@@ -43,21 +48,44 @@ const translateText = async (text, fromLang, toLang) => {
         })
       });
 
+      console.log('📥 DeepL API response status:', deeplResponse.status);
+
       if (deeplResponse.ok) {
         const data = await deeplResponse.json();
-        return data.translations?.[0]?.text || text;
+        console.log('📥 DeepL API response data:', data);
+        const translatedText = data.translations?.[0]?.text || text;
+        console.log('✅ DeepL translated text:', translatedText);
+        return translatedText;
+      } else {
+        const errorText = await deeplResponse.text();
+        console.error('❌ DeepL API error:', deeplResponse.status, errorText);
       }
+    } else {
+      console.log('⚠️ No DeepL API key found, using fallback');
     }
 
     // Fallback to MyMemory (free, no API key required)
+    console.log('🔄 Using MyMemory fallback translation...');
     const myMemoryResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`);
-    const myMemoryData = await myMemoryResponse.json();
-    return myMemoryData.responseData?.translatedText || text;
+    
+    console.log('📥 MyMemory API response status:', myMemoryResponse.status);
+    
+    if (myMemoryResponse.ok) {
+      const myMemoryData = await myMemoryResponse.json();
+      console.log('📥 MyMemory API response data:', myMemoryData);
+      const translatedText = myMemoryData.responseData?.translatedText || text;
+      console.log('✅ MyMemory translated text:', translatedText);
+      return translatedText;
+    } else {
+      console.error('❌ MyMemory API error:', myMemoryResponse.status);
+    }
 
   } catch (error) {
-    console.error('Translation error:', error);
-    return text; // Return original text if translation fails
+    console.error('❌ Translation error:', error);
   }
+  
+  console.log('⚠️ Returning original text due to translation failure');
+  return text; // Return original text if translation fails
 };
 
 // Map language codes to DeepL format
@@ -89,15 +117,21 @@ router.post('/translate', verifyToken, async (req, res) => {
   try {
     const { text, fromLang, toLang } = req.body;
     
+    console.log('🌐 Translation endpoint called with:', { text, fromLang, toLang });
+    console.log('🔑 DeepL API Key in endpoint:', !!process.env.DEEPL_API_KEY);
+    
     if (!text || !fromLang || !toLang) {
+      console.error('❌ Missing required fields:', { text, fromLang, toLang });
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     const translatedText = await translateText(text, fromLang, toLang);
+    console.log('✅ Translation endpoint result:', { originalText: text, translatedText, fromLang, toLang });
+    
     res.json({ translatedText, originalText: text, fromLang, toLang });
 
   } catch (error) {
-    console.error('Translation endpoint error:', error);
+    console.error('❌ Translation endpoint error:', error);
     res.status(500).json({ error: 'Translation failed' });
   }
 });
