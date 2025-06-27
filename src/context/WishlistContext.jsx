@@ -26,6 +26,9 @@ export function WishlistProvider({ children }) {
     try {
       const res = await apiService.addToWishlist(productId);
       setWishlist(res.wishlist || []);
+    } catch (error) {
+      console.error('Failed to add to wishlist:', error);
+      // Don't throw error, just log it to prevent crashes
     } finally {
       setLoading(false);
     }
@@ -36,6 +39,9 @@ export function WishlistProvider({ children }) {
     try {
       const res = await apiService.removeFromWishlist(productId);
       setWishlist(res.wishlist || []);
+    } catch (error) {
+      console.error('Failed to remove from wishlist:', error);
+      // Don't throw error, just log it to prevent crashes
     } finally {
       setLoading(false);
     }

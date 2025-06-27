@@ -241,8 +241,9 @@ class ApiService {
   }
 
   async addToWishlist(productId) {
-    return this.request(`/auth/users/me/wishlist/${productId}`, {
+    return this.request('/auth/users/me/wishlist', {
       method: 'POST',
+      body: JSON.stringify({ productId }),
     });
   }
 

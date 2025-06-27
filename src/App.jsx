@@ -78,6 +78,7 @@ export default function App() {
               <Route path="/vendor-dashboard" element={userType === 'vendor' ? <VendorDashboard /> : <Navigate to="/" />} />
               <Route path="/admin-dashboard" element={userType === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} />
               <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+              <Route path="/products" element={<Home showToast={showToast} />} />
               <Route path="/products/:id" element={<ProductDetails showToast={showToast} />} />
               <Route path="/wishlist" element={<PrivateRoute><Wishlist /></PrivateRoute>} />
               <Route path="*" element={<NotFound />} />

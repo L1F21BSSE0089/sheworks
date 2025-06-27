@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import apiService from "../services/api";
 import { useCart } from "../context/CartContext";
@@ -26,37 +26,65 @@ const SORT_OPTIONS = [
 ];
 
 function filterProducts(products, filters) {
+  if (!products || products.length === 0) return [];
+  
   return products.filter(p => {
-    // Search
-    const matchesSearch = !filters.search ||
-      p.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-      (p.description && p.description.toLowerCase().includes(filters.search.toLowerCase())) ||
-      (p.tags && p.tags.some(tag => tag.toLowerCase().includes(filters.search.toLowerCase())));
-    // Categories
-    const matchesCategory = filters.categories.length === 0 || filters.categories.includes(p.category);
-    // Price
-    const matchesPrice = (!filters.price[0] || p.price.current >= filters.price[0]) && (!filters.price[1] || p.price.current <= filters.price[1]);
-    // Rating
-    const matchesRating = !filters.rating || (p.rating?.average || 0) >= filters.rating;
-    // Discount
-    const matchesDiscount = !filters.discount || (p.discount && p.discount.percentage >= filters.discount);
-    // Tags
-    const matchesTags = filters.tags.length === 0 || (p.tags && filters.tags.every(tag => p.tags.includes(tag)));
-    return matchesSearch && matchesCategory && matchesPrice && matchesRating && matchesDiscount && matchesTags;
+    // Search - only run if search term exists
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm) ||
+        (p.description && p.description.toLowerCase().includes(searchTerm)) ||
+        (p.tags && p.tags.some(tag => tag.toLowerCase().includes(searchTerm)));
+      if (!matchesSearch) return false;
+    }
+    
+    // Categories - only run if categories are selected
+    if (filters.categories.length > 0 && !filters.categories.includes(p.category)) {
+      return false;
+    }
+    
+    // Price - only run if price range is set
+    if (filters.price[0] > 0 || filters.price[1] > 0) {
+      const price = p.price?.current || 0;
+      if ((filters.price[0] > 0 && price < filters.price[0]) || 
+          (filters.price[1] > 0 && price > filters.price[1])) {
+        return false;
+      }
+    }
+    
+    // Rating - only run if rating filter is set
+    if (filters.rating > 0 && (p.rating?.average || 0) < filters.rating) {
+      return false;
+    }
+    
+    // Discount - only run if discount filter is set
+    if (filters.discount > 0 && (!p.discount || p.discount.percentage < filters.discount)) {
+      return false;
+    }
+    
+    // Tags - only run if tags are selected
+    if (filters.tags.length > 0 && (!p.tags || !filters.tags.every(tag => p.tags.includes(tag)))) {
+      return false;
+    }
+    
+    return true;
   });
 }
 
 function sortProducts(products, sort) {
+  if (!products || products.length === 0) return [];
+  if (!sort) return products;
+  
   const arr = [...products];
   switch (sort) {
     case "price-asc":
-      return arr.sort((a, b) => a.price.current - b.price.current);
+      return arr.sort((a, b) => (a.price?.current || 0) - (b.price?.current || 0));
     case "price-desc":
-      return arr.sort((a, b) => b.price.current - a.price.current);
+      return arr.sort((a, b) => (b.price?.current || 0) - (a.price?.current || 0));
     case "rating-desc":
       return arr.sort((a, b) => (b.rating?.average || 0) - (a.rating?.average || 0));
     case "newest":
-      return arr.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      return arr.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     case "bestselling":
       return arr.sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0));
     default:
@@ -68,6 +96,8 @@ export default function Home({ showToast }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, pages: 0 });
+  const [hasMore, setHasMore] = useState(true);
   const { addToCart } = useCart();
   const [filters, setFilters] = useState({
     search: "",
@@ -82,42 +112,105 @@ export default function Home({ showToast }) {
   const [allTags, setAllTags] = useState([]);
   const [priceRange, setPriceRange] = useState([0, 0]);
   const { wishlist, addToWishlist, removeFromWishlist, loading: wishlistLoading } = useWishlist();
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [filters.search]);
+
+  // Use debounced search for filtering
+  const effectiveFilters = useMemo(() => ({
+    ...filters,
+    search: debouncedSearch
+  }), [filters, debouncedSearch]);
 
   useEffect(() => {
     setLoading(true);
-    apiService.getProducts()
+    setError(null);
+    
+    // Build query parameters
+    const params = new URLSearchParams();
+    if (filters.categories.length > 0) {
+      params.append('category', filters.categories[0]); // For now, use first category
+    }
+    if (debouncedSearch) {
+      params.append('search', debouncedSearch);
+    }
+    if (sort) {
+      params.append('sort', sort);
+    }
+    params.append('page', pagination.page.toString());
+    params.append('limit', pagination.limit.toString());
+    
+    apiService.request(`/products?${params.toString()}`)
       .then(res => {
         console.log('Products loaded:', res.products?.length || 0);
-        setProducts(res.products || []);
-        // Collect all tags and price range
+        
+        // If it's the first page, replace products, otherwise append
+        if (pagination.page === 1) {
+          setProducts(res.products || []);
+        } else {
+          setProducts(prev => [...prev, ...(res.products || [])]);
+        }
+        
+        setPagination(res.pagination || { page: 1, limit: 50, total: 0, pages: 0 });
+        setHasMore(res.pagination && res.pagination.page < res.pagination.pages);
+        
+        // Collect all tags and price range from all loaded products
+        const allProducts = pagination.page === 1 ? (res.products || []) : [...products, ...(res.products || [])];
         const tags = new Set();
         let minPrice = Infinity, maxPrice = 0;
-        (res.products || []).forEach(p => {
+        allProducts.forEach(p => {
           (p.tags || []).forEach(tag => tags.add(tag));
           if (p.price?.current < minPrice) minPrice = p.price.current;
           if (p.price?.current > maxPrice) maxPrice = p.price.current;
         });
         setAllTags(Array.from(tags));
         setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
-        setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
+        if (pagination.page === 1) {
+          setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
+        }
       })
       .catch(err => {
         console.error('Error loading products:', err);
         setError(err.message);
       })
       .finally(() => setLoading(false));
-    
-    // Use the same products for recommendations instead of making another API call
-    // This reduces server load and improves performance
+  }, [pagination.page, debouncedSearch, sort, filters.categories]);
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !loading) {
+      setPagination(prev => ({ ...prev, page: prev.page + 1 }));
+    }
+  }, [hasMore, loading]);
+
+  const resetPagination = useCallback(() => {
+    setPagination({ page: 1, limit: 50, total: 0, pages: 0 });
+    setProducts([]);
   }, []);
 
-  const handleAddToCart = (product, qty) => {
+  // Reset pagination when filters change
+  useEffect(() => {
+    if (pagination.page > 1) {
+      resetPagination();
+    }
+  }, [debouncedSearch, sort, filters.categories, resetPagination]);
+
+  const handleAddToCart = useCallback((product, qty) => {
     addToCart(product, qty);
     if (showToast) showToast("Added to cart!", "success");
-  };
+  }, [addToCart, showToast]);
 
-  const isInWishlist = (productId) => wishlist.some(w => w.product && (w.product._id === productId || w.product === productId));
-  const handleWishlistToggle = async (product, e) => {
+  const isInWishlist = useCallback((productId) => {
+    return wishlist.some(w => w.product && (w.product._id === productId || w.product === productId));
+  }, [wishlist]);
+
+  const handleWishlistToggle = useCallback(async (product, e) => {
     e.preventDefault();
     if (isInWishlist(product._id)) {
       await removeFromWishlist(product._id);
@@ -126,12 +219,12 @@ export default function Home({ showToast }) {
       await addToWishlist(product._id);
       if (showToast) showToast("Added to wishlist!", "success");
     }
-  };
+  }, [isInWishlist, removeFromWishlist, addToWishlist, showToast]);
 
   // Filtered and sorted products - optimized with useMemo
   const filtered = useMemo(() => {
-    return sortProducts(filterProducts(products, filters), sort);
-  }, [products, filters, sort]);
+    return sortProducts(filterProducts(products, effectiveFilters), sort);
+  }, [products, effectiveFilters, sort]);
   
   // Use filtered products for recommendations to avoid extra API calls
   const recommended = useMemo(() => {
@@ -293,9 +386,10 @@ export default function Home({ showToast }) {
                   <button
                     className="absolute top-2 right-2 z-10 text-primary hover:text-red-500 focus:outline-none"
                     onClick={e => handleWishlistToggle(product, e)}
+                    disabled={wishlistLoading}
                     aria-label={isInWishlist(product._id) ? "Remove from wishlist" : "Add to wishlist"}
                   >
-                    <HeartIcon filled={isInWishlist(product._id)} className="w-6 h-6" />
+                    <HeartIcon filled={isInWishlist(product._id)} className={`w-6 h-6 ${wishlistLoading ? 'opacity-50' : ''}`} />
                   </button>
                   <div className="relative">
                     {product.discount && product.discount.percentage ? (
@@ -335,6 +429,26 @@ export default function Home({ showToast }) {
           <div className="flex justify-center mt-8">
             <Link to="/products" className="bg-primary text-white px-8 py-2 rounded">View All Products</Link>
           </div>
+          
+          {/* Load More Button */}
+          {hasMore && (
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={loadMore}
+                disabled={loading}
+                className="bg-gray-200 text-gray-800 px-8 py-2 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Loading...' : 'Load More Products'}
+              </button>
+            </div>
+          )}
+          
+          {/* Show total count */}
+          {pagination.total > 0 && (
+            <div className="text-center mt-4 text-gray-600">
+              Showing {products.length} of {pagination.total} products
+            </div>
+          )}
         </section>
       </div>
       {/* Recommended for you */}
@@ -351,9 +465,10 @@ export default function Home({ showToast }) {
                 <button
                   className="absolute top-2 right-2 z-10 text-primary hover:text-red-500 focus:outline-none"
                   onClick={e => handleWishlistToggle(product, e)}
+                  disabled={wishlistLoading}
                   aria-label={isInWishlist(product._id) ? "Remove from wishlist" : "Add to wishlist"}
                 >
-                  <HeartIcon filled={isInWishlist(product._id)} className="w-6 h-6" />
+                  <HeartIcon filled={isInWishlist(product._id)} className={`w-6 h-6 ${wishlistLoading ? 'opacity-50' : ''}`} />
                 </button>
                 <div className="relative">
                   {product.discount && product.discount.percentage ? (

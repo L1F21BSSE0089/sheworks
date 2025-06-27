@@ -24,10 +24,67 @@ const verifyToken = (req, res, next) => {
 router.get('/', async (req, res) => {
   try {
     console.log('=== GET PRODUCTS START ===');
-    const products = await Product.find().populate('vendor', 'businessName');
-    console.log('Found products:', products.length);
+    const { page = 1, limit = 50, category, search, sort } = req.query;
+    
+    // Build query
+    let query = { isActive: true };
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } }
+      ];
+    }
+    
+    // Build sort
+    let sortOption = {};
+    switch (sort) {
+      case 'price-asc':
+        sortOption = { 'price.current': 1 };
+        break;
+      case 'price-desc':
+        sortOption = { 'price.current': -1 };
+        break;
+      case 'rating-desc':
+        sortOption = { 'rating.average': -1 };
+        break;
+      case 'newest':
+        sortOption = { createdAt: -1 };
+        break;
+      case 'bestselling':
+        sortOption = { salesCount: -1 };
+        break;
+      default:
+        sortOption = { createdAt: -1 };
+    }
+    
+    const skip = (page - 1) * limit;
+    
+    const products = await Product.find(query)
+      .populate('vendor', 'businessName')
+      .sort(sortOption)
+      .limit(parseInt(limit))
+      .skip(skip);
+      
+    const total = await Product.countDocuments(query);
+    
+    console.log('Found products:', products.length, 'of', total);
     console.log('=== GET PRODUCTS SUCCESS ===');
-    res.json({ products });
+    
+    res.json({ 
+      products,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (err) {
     console.error('=== GET PRODUCTS ERROR ===');
     console.error('Error:', err);
