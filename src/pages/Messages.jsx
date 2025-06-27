@@ -97,10 +97,15 @@ export default function Messages() {
     const loadAllUsers = async () => {
       try {
         setSearchLoading(true);
+        console.log('🔍 Loading users and vendors...');
+        
         const [customersRes, vendorsRes] = await Promise.all([
           apiService.getCustomers(),
           apiService.getVendors()
         ]);
+        
+        console.log('📊 Customers response:', customersRes);
+        console.log('📊 Vendors response:', vendorsRes);
         
         const customers = (customersRes.users || customersRes || []).map(user => ({
           id: user._id,
@@ -118,10 +123,16 @@ export default function Messages() {
           displayName: vendor.businessName || `${vendor.contactPerson?.firstName} ${vendor.contactPerson?.lastName}`.trim()
         }));
         
-        setAllUsers([...customers, ...vendors]);
-        console.log('👥 Loaded users:', customers.length + vendors.length);
+        console.log('👥 Processed customers:', customers);
+        console.log('👥 Processed vendors:', vendors);
+        
+        const allUsersArray = [...customers, ...vendors];
+        setAllUsers(allUsersArray);
+        console.log('👥 Total users loaded:', allUsersArray.length);
+        console.log('👥 All users:', allUsersArray);
       } catch (err) {
         console.error('❌ Error loading users:', err);
+        console.error('❌ Error details:', err.message);
       } finally {
         setSearchLoading(false);
       }
@@ -639,6 +650,9 @@ export default function Messages() {
             <p className="text-sm text-gray-600 mb-4">
               Search for a person or shop to start chatting with.
             </p>
+            <div className="text-xs text-gray-400 mb-2">
+              Debug: {allUsers.length} users loaded | Search: "{searchQuery}"
+            </div>
             <div className="space-y-3">
               <div className="relative user-dropdown-container">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -667,32 +681,40 @@ export default function Messages() {
                 {/* User Dropdown */}
                 {showUserDropdown && searchQuery && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {allUsers
-                      .filter(user => 
+                    {(() => {
+                      console.log('🔍 Searching for:', searchQuery);
+                      console.log('👥 All users available:', allUsers);
+                      
+                      const filteredUsers = allUsers.filter(user => 
                         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         user.email.toLowerCase().includes(searchQuery.toLowerCase())
-                      )
-                      .slice(0, 10) // Limit to 10 results
-                      .map((user) => (
-                        <button
-                          key={user.id}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center space-x-3"
-                          onClick={() => {
-                            setNewRecipientEmail(user.email);
-                            setSearchQuery(user.name);
-                            setShowUserDropdown(false);
-                          }}
-                        >
-                          <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-sm">
-                            {user.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
-                            <div className="text-xs text-gray-400 capitalize">{user.type}</div>
-                          </div>
-                        </button>
-                      ))}
+                      );
+                      
+                      console.log('✅ Filtered users:', filteredUsers);
+                      
+                      return filteredUsers
+                        .slice(0, 10) // Limit to 10 results
+                        .map((user) => (
+                          <button
+                            key={user.id}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center space-x-3"
+                            onClick={() => {
+                              setNewRecipientEmail(user.email);
+                              setSearchQuery(user.name);
+                              setShowUserDropdown(false);
+                            }}
+                          >
+                            <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-sm">
+                              {user.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{user.name}</div>
+                              <div className="text-sm text-gray-500">{user.email}</div>
+                              <div className="text-xs text-gray-400 capitalize">{user.type}</div>
+                            </div>
+                          </button>
+                        ));
+                    })()}
                     {allUsers.filter(user => 
                       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                       user.email.toLowerCase().includes(searchQuery.toLowerCase())
