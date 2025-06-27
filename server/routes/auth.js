@@ -25,6 +25,16 @@ router.post('/register/user', [
 ], async (req, res) => {
   try {
     console.log('=== USER REGISTRATION START ===');
+    
+    // Check if JWT_SECRET is configured
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not configured!');
+      return res.status(500).json({ 
+        error: 'Server configuration error', 
+        details: 'JWT_SECRET environment variable is missing' 
+      });
+    }
+    
     console.log('Request body:', JSON.stringify(req.body, null, 2));
     console.log('Request headers:', req.headers);
     

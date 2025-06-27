@@ -120,6 +120,14 @@ app.post('/api/test-auth', async (req, res) => {
   try {
     console.log('Test auth endpoint called with body:', req.body);
     
+    // Check JWT_SECRET
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ 
+        error: 'JWT_SECRET is not configured',
+        details: 'This is likely the cause of registration failures'
+      });
+    }
+    
     const User = require('./models/User');
     const bcrypt = require('bcryptjs');
     
@@ -138,6 +146,7 @@ app.post('/api/test-auth', async (req, res) => {
     res.json({ 
       message: 'Auth test successful',
       userId: testUser._id,
+      jwtSecretConfigured: !!process.env.JWT_SECRET,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -146,7 +155,8 @@ app.post('/api/test-auth', async (req, res) => {
     res.status(500).json({ 
       error: 'Auth test failed', 
       details: error.message,
-      stack: error.stack 
+      stack: error.stack,
+      jwtSecretConfigured: !!process.env.JWT_SECRET
     });
   }
 });
