@@ -445,7 +445,11 @@ export default function Messages() {
       
       console.log('🔍 Starting conversation with:', selectedUser);
       console.log('🆔 User ID to send to:', selectedUser.id);
+      console.log('🆔 User ID type:', typeof selectedUser.id);
+      console.log('🆔 User ID stringified:', JSON.stringify(selectedUser.id));
       console.log('👤 Current user:', user);
+      console.log('👤 Current user ID:', user._id);
+      console.log('👤 Current user ID type:', typeof user._id);
       
       // Prepare message data
       const messageData = {
@@ -698,6 +702,47 @@ export default function Messages() {
             </p>
             <div className="text-xs text-gray-400 mb-2">
               Debug: {allUsers.length} users loaded | Search: "{searchQuery}"
+            </div>
+            <div className="text-xs text-gray-400 mb-2">
+              <button 
+                onClick={async () => {
+                  try {
+                    console.log('🧪 Testing backend directly...');
+                    const testResult = await apiService.testDatabase();
+                    console.log('🧪 Backend test result:', testResult);
+                    alert(`Backend test: ${testResult.counts.total} total users found`);
+                  } catch (err) {
+                    console.error('❌ Backend test failed:', err);
+                    alert(`Backend test failed: ${err.message}`);
+                  }
+                }}
+                className="text-blue-500 hover:text-blue-700 underline"
+              >
+                Test Backend
+              </button>
+              {allUsers.length > 0 && (
+                <button 
+                  onClick={async () => {
+                    try {
+                      const firstUser = allUsers[0];
+                      console.log('🧪 Testing send message to:', firstUser);
+                      const result = await apiService.sendMessage({
+                        recipientId: firstUser.id,
+                        content: "Test message from debug button",
+                        language: 'en'
+                      });
+                      console.log('✅ Test message sent:', result);
+                      alert(`Test message sent successfully to ${firstUser.name}`);
+                    } catch (err) {
+                      console.error('❌ Test message failed:', err);
+                      alert(`Test message failed: ${err.message}`);
+                    }
+                  }}
+                  className="text-green-500 hover:text-green-700 underline ml-4"
+                >
+                  Test Send Message
+                </button>
+              )}
             </div>
             <div className="space-y-3">
               <div className="relative user-dropdown-container">
