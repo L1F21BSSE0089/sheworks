@@ -454,8 +454,8 @@ export default function Products({ showToast }) {
         {/* Active Filters */}
         <div className="flex flex-wrap gap-2 mb-4">
           {filters.search && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Search: {filters.search} <button className="ml-1" onClick={() => removeFilter("search")}>×</button></span>}
-          {filters.categories.map(cat => <span key={cat} className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">{CATEGORY_OPTIONS.find(c => c.value === cat)?.label || cat} <button className="ml-1" onClick={() => removeFilter("categories", cat)}>×</button></span>}
-          {filters.tags.map(tag => <span key={tag} className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Tag: {tag} <button className="ml-1" onClick={() => removeFilter("tags", tag)}>×</button></span>}
+          {filters.categories.map(cat => <span key={cat} className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">{CATEGORY_OPTIONS.find(c => c.value === cat)?.label || cat} <button className="ml-1" onClick={() => removeFilter("categories", cat)}>×</button></span>)}
+          {filters.tags.map(tag => <span key={tag} className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Tag: {tag} <button className="ml-1" onClick={() => removeFilter("tags", tag)}>×</button></span>)}
           {filters.rating > 0 && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Rating: {filters.rating}★ & up <button className="ml-1" onClick={() => removeFilter("rating")}>×</button></span>}
           {filters.discount > 0 && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Discount: {filters.discount}%+ <button className="ml-1" onClick={() => removeFilter("discount")}>×</button></span>}
           {(filters.price[0] !== priceRange[0] || filters.price[1] !== priceRange[1]) && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Price: ₨{filters.price[0]} - ₨{filters.price[1]} <button className="ml-1" onClick={() => removeFilter("price")}>×</button></span>}
