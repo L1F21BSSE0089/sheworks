@@ -640,9 +640,10 @@ export default function Messages() {
                       onClick={async () => {
                         try {
                           console.log('🧪 Testing translation...');
+                          console.log('🔑 DeepL API Key available:', !!import.meta.env.VITE_DEEPL_API_KEY);
                           const result = await deeplTranslationService.translateText('Hello world', 'en', 'es');
                           console.log('✅ Test translation result:', result);
-                          alert(`Test translation: "Hello world" → "${result}"`);
+                          alert(`Test translation: "Hello world" (en) → "${result}" (es)`);
                         } catch (err) {
                           console.error('❌ Test translation failed:', err);
                           alert(`Translation test failed: ${err.message}`);
@@ -650,7 +651,7 @@ export default function Messages() {
                       }}
                       className="text-xs text-blue-500 hover:text-blue-700 underline mb-2"
                     >
-                      Test Translation
+                      Test Translation (en→es)
                     </button>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
                       {Object.entries(LANGUAGES).map(([code, lang]) => (

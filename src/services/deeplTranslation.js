@@ -61,11 +61,21 @@ class DeepLTranslationService {
       const originalText = message.content?.text || message.text || '';
       const originalLang = message.content?.language || message.language || 'en';
       
+      console.log(`🌐 Translating message ${messageId}:`, {
+        originalText: originalText.substring(0, 50) + '...',
+        fromLang: originalLang,
+        toLang: targetLang
+      });
+      
+      // Always translate if target language is different from original
       if (originalLang !== targetLang && originalText) {
         const translatedText = await this.translateText(originalText, originalLang, targetLang);
         translatedMessages[messageId] = translatedText;
+        console.log(`✅ Translated to ${targetLang}:`, translatedText.substring(0, 50) + '...');
       } else {
+        // If same language or no text, keep original
         translatedMessages[messageId] = originalText;
+        console.log(`⏭️ No translation needed for ${messageId}`);
       }
     }
     
