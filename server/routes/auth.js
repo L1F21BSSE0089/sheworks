@@ -397,4 +397,62 @@ router.post('/logout', verifyToken, (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
+// Wishlist routes
+router.get('/users/me/wishlist', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).populate('wishlist.product');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ wishlist: user.wishlist });
+  } catch (error) {
+    console.error('Get wishlist error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/users/me/wishlist/:productId', verifyToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const user = await User.findById(req.user.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if product already in wishlist
+    const existingItem = user.wishlist.find(item => item.product.toString() === productId);
+    if (existingItem) {
+      return res.status(400).json({ error: 'Product already in wishlist' });
+    }
+
+    user.wishlist.push({ product: productId });
+    await user.save();
+    
+    res.json({ message: 'Product added to wishlist' });
+  } catch (error) {
+    console.error('Add to wishlist error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.delete('/users/me/wishlist/:productId', verifyToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const user = await User.findById(req.user.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    user.wishlist = user.wishlist.filter(item => item.product.toString() !== productId);
+    await user.save();
+    
+    res.json({ message: 'Product removed from wishlist' });
+  } catch (error) {
+    console.error('Remove from wishlist error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = { router, verifyToken }; 
