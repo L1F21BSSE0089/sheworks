@@ -77,6 +77,33 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Simple test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Server is working!',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Test products endpoint
+app.get('/api/test-products', async (req, res) => {
+  try {
+    const Product = require('./models/Product');
+    const count = await Product.countDocuments();
+    res.json({ 
+      message: 'Products test successful',
+      productCount: count,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Test products error:', error);
+    res.status(500).json({ 
+      error: 'Products test failed',
+      details: error.message 
+    });
+  }
+});
+
 // Socket.io connection handling
 const connectedUsers = new Map();
 const connectedVendors = new Map();
