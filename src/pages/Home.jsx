@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import apiService from "../services/api";
 import { useCart } from "../context/CartContext";
@@ -78,7 +78,6 @@ export default function Home({ showToast }) {
     tags: [],
   });
   const [sort, setSort] = useState("");
-  const [recommended, setRecommended] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [allTags, setAllTags] = useState([]);
   const [priceRange, setPriceRange] = useState([0, 0]);
@@ -88,7 +87,7 @@ export default function Home({ showToast }) {
     setLoading(true);
     apiService.getProducts()
       .then(res => {
-        console.log('Products loaded:', res);
+        console.log('Products loaded:', res.products?.length || 0);
         setProducts(res.products || []);
         // Collect all tags and price range
         const tags = new Set();
@@ -108,16 +107,8 @@ export default function Home({ showToast }) {
       })
       .finally(() => setLoading(false));
     
-    // Fetch recommendations - use the correct endpoint
-    apiService.getProducts()
-      .then(res => {
-        console.log('Recommendations loaded:', res);
-        setRecommended(res.products || []);
-      })
-      .catch(err => {
-        console.error('Error loading recommendations:', err);
-        // Don't set error for recommendations, just log it
-      });
+    // Use the same products for recommendations instead of making another API call
+    // This reduces server load and improves performance
   }, []);
 
   const handleAddToCart = (product, qty) => {
@@ -137,8 +128,15 @@ export default function Home({ showToast }) {
     }
   };
 
-  // Filtered and sorted products
-  const filtered = sortProducts(filterProducts(products, filters), sort);
+  // Filtered and sorted products - optimized with useMemo
+  const filtered = useMemo(() => {
+    return sortProducts(filterProducts(products, filters), sort);
+  }, [products, filters, sort]);
+  
+  // Use filtered products for recommendations to avoid extra API calls
+  const recommended = useMemo(() => {
+    return filtered.slice(0, 8);
+  }, [filtered]);
 
   // UI Handlers
   const handleCategoryChange = (cat) => {

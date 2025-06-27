@@ -22,9 +22,14 @@ export default function ProductDetails({ showToast }) {
   useEffect(() => {
     setLoading(true);
     apiService.request(`/products/${id}`)
-      .then(res => setProduct(res.product))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+      .then(res => {
+        setProduct(res.product);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, [id]);
 
   const isInWishlist = (productId) => wishlist.some(w => w.product && (w.product._id === productId || w.product === productId));

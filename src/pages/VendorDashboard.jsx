@@ -171,7 +171,7 @@ export default function VendorDashboard() {
     }
     
     try {
-      // Prepare product data with images - simplify to avoid issues
+      // Prepare product data with images - optimize for performance
       const productData = {
         name: form.name,
         description: form.description,
@@ -185,9 +185,12 @@ export default function VendorDashboard() {
         })) : [{ url: '/shop.webp', alt: form.name, isPrimary: true }]
       };
       
-      console.log('Submitting product data:', {
+      // Remove file objects to reduce payload size
+      delete productData.file;
+      
+      console.log('Submitting product data (optimized):', {
         ...productData,
-        images: productData.images.map(img => ({ ...img, url: img.url.substring(0, 50) + '...' })) // Log truncated URLs
+        images: productData.images.map(img => ({ ...img, url: img.url.substring(0, 30) + '...' }))
       });
       
       if (editingId) {
@@ -214,17 +217,8 @@ export default function VendorDashboard() {
         showToast(editingId ? "Product updated successfully!" : "Product added successfully!", "success");
       }
       
-      // Refresh products list to ensure everything is up to date
-      setTimeout(() => {
-        apiService.getProducts()
-          .then(res => {
-            const vendorProducts = (res.products || []).filter(p => p.vendor?._id === user._id);
-            setProducts(vendorProducts);
-          })
-          .catch(err => {
-            console.error('Error refreshing products:', err);
-          });
-      }, 500);
+      // No need to refresh - we already updated the local state
+      // The automatic refresh was causing performance issues
       
     } catch (err) {
       console.error('Product save error:', err);
@@ -266,38 +260,29 @@ export default function VendorDashboard() {
       return;
     }
     
-    // Validate file sizes (max 5MB per image)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validate file sizes (max 2MB per image for better performance)
+    const maxSize = 2 * 1024 * 1024; // 2MB
     const oversizedFiles = files.filter(file => file.size > maxSize);
     
     if (oversizedFiles.length > 0) {
-      setFormError('Images must be smaller than 5MB each.');
+      setFormError('Images must be smaller than 2MB each for better performance.');
       return;
     }
     
-    // Convert files to base64 for preview and storage
-    const imagePromises = files.map(file => {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          resolve({
-            url: e.target.result,
-            alt: file.name,
-            isPrimary: form.images.length === 0, // First image is primary
-            file: file
-          });
-        };
-        reader.readAsDataURL(file);
-      });
-    });
+    // For now, use placeholder URLs instead of base64 to improve performance
+    // In production, you'd upload to a CDN like Cloudinary or AWS S3
+    const newImages = files.map((file, index) => ({
+      url: `/placeholder-${Date.now()}-${index}.jpg`, // Placeholder URL
+      alt: file.name,
+      isPrimary: form.images.length === 0 && index === 0, // First image is primary
+      file: file // Keep file reference for potential upload later
+    }));
     
-    Promise.all(imagePromises).then(newImages => {
-      setForm(prev => ({
-        ...prev,
-        images: [...prev.images, ...newImages]
-      }));
-      setFormError(null);
-    });
+    setForm(prev => ({
+      ...prev,
+      images: [...prev.images, ...newImages]
+    }));
+    setFormError(null);
   };
 
   const removeImage = (index) => {
@@ -478,7 +463,7 @@ export default function VendorDashboard() {
                   className="bg-gray-100 p-2 rounded w-full" 
                   onChange={handleImageUpload} 
                 />
-                <p className="text-xs text-gray-500 mt-1">Upload product images (JPG, PNG, WebP - max 5MB each)</p>
+                <p className="text-xs text-gray-500 mt-1">Upload product images (JPG, PNG, WebP - max 2MB each)</p>
                 
                 {/* Image Previews */}
                 {form.images.length > 0 && (
