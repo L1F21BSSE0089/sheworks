@@ -91,7 +91,7 @@ export default function Signup() {
       };
 
       await googleSignup(googleData);
-      navigate("/");
+      navigate(userType === "vendor" ? "/vendor-dashboard" : "/account");
     } catch (err) {
       setError(err.message || "Google signup failed");
     } finally {

@@ -179,7 +179,7 @@ export default function AdminDashboard({ showToast }) {
           <div>Orders</div>
         </div>
         <div className="bg-blue-500 text-white rounded p-4 text-center">
-          <div className="text-2xl font-bold">${orders.reduce((sum, o) => sum + (o.totals?.total || 0), 0)}</div>
+          <div className="text-2xl font-bold">₨{orders.reduce((sum, o) => sum + (o.totals?.total || 0), 0)}</div>
           <div>Total Sales</div>
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function AdminDashboard({ showToast }) {
             <div className="overflow-x-auto">
               <table className="w-full mb-6 text-sm md:text-base">
                 <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Vendor</th><th>Actions</th></tr></thead>
-                <tbody>{products.map(p => <tr key={p._id}><td>{p.name}</td><td>{p.category}</td><td>${p.price.current}</td><td>{p.inventory.stock}</td><td>{p.vendor?.businessName || p.vendor?.username || ""}</td><td><button onClick={() => suspendProduct(p._id)}>Suspend</button> <button onClick={() => deleteProduct(p._id)}>Delete</button></td></tr>)}</tbody>
+                <tbody>{products.map(p => <tr key={p._id}><td>{p.name}</td><td>{p.category}</td><td>₨{p.price.current}</td><td>{p.inventory.stock}</td><td>{p.vendor?.businessName || p.vendor?.username || ""}</td><td><button onClick={() => suspendProduct(p._id)}>Suspend</button> <button onClick={() => deleteProduct(p._id)}>Delete</button></td></tr>)}</tbody>
               </table>
             </div>
           )}
@@ -213,7 +213,7 @@ export default function AdminDashboard({ showToast }) {
             <div className="overflow-x-auto">
               <table className="w-full mb-6 text-sm md:text-base">
                 <thead><tr><th>Order #</th><th>Status</th><th>Total</th><th>Customer</th><th>Actions</th></tr></thead>
-                <tbody>{orders.map(o => <tr key={o._id}><td>{o.orderNumber}</td><td>{o.status}</td><td>${o.totals?.total}</td><td>{o.customer}</td><td><button onClick={() => deleteOrder(o._id)}>Delete</button></td></tr>)}</tbody>
+                <tbody>{orders.map(o => <tr key={o._id}><td>{o.orderNumber}</td><td>{o.status}</td><td>₨{o.totals?.total}</td><td>{o.customer}</td><td><button onClick={() => deleteOrder(o._id)}>Delete</button></td></tr>)}</tbody>
               </table>
             </div>
           )}

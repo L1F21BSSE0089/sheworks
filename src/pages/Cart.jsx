@@ -43,7 +43,9 @@ export default function Cart({ showToast }) {
                       />
                       {item.product.name}
                     </td>
-                    <td>${item.product.price.current}</td>
+                    <td>
+                      <div className="text-primary font-bold">₨{item.product.price.current}</div>
+                    </td>
                     <td>
                       <input
                         type="number"
@@ -53,7 +55,7 @@ export default function Cart({ showToast }) {
                         onChange={e => handleUpdateQty(item.product._id, Math.max(1, Number(e.target.value)))}
                       />
                     </td>
-                    <td>${item.product.price.current * item.quantity}</td>
+                    <td>₨{item.product.price.current * item.quantity}</td>
                     <td>
                       <button
                         className="text-red-500 underline text-sm"
@@ -76,7 +78,7 @@ export default function Cart({ showToast }) {
               <h2 className="text-xl font-bold mb-4">Cart Total</h2>
               <div className="flex justify-between mb-2">
                 <span>Subtotal:</span>
-                <span>${total}</span>
+                <span>₨{total}</span>
               </div>
               <div className="flex justify-between mb-2">
                 <span>Shipping:</span>
@@ -84,7 +86,7 @@ export default function Cart({ showToast }) {
               </div>
               <div className="flex justify-between font-bold text-lg mb-4">
                 <span>Total:</span>
-                <span>${total}</span>
+                <span>₨{total}</span>
               </div>
               <Link
                 to="/checkout"

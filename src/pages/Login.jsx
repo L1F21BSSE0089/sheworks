@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -8,8 +8,44 @@ export default function Login() {
   const [userType, setUserType] = useState("customer");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { login } = useAuth();
+  const { login, googleSignup } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Initialize Google OAuth
+    if (window.google) {
+      window.google.accounts.id.initialize({
+        client_id: "384698730754-e8dhto602di0o4trdvoelggmk61gjiqp.apps.googleusercontent.com",
+        callback: handleGoogleLogin,
+      });
+      window.google.accounts.id.renderButton(
+        document.getElementById("google-login-button"),
+        { theme: "outline", size: "large", width: "100%" }
+      );
+    }
+  }, [userType]);
+
+  const handleGoogleLogin = async (response) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { credential } = response;
+      const payload = JSON.parse(atob(credential.split('.')[1]));
+      const googleData = {
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+        googleId: payload.sub,
+        userType: userType
+      };
+      await googleSignup(googleData);
+      navigate(userType === "vendor" ? "/vendor-dashboard" : "/account");
+    } catch (err) {
+      setError(err.message || "Google login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,6 +112,9 @@ export default function Login() {
           </button>
           {error && <div className="text-red-500 text-sm text-center">{error}</div>}
         </form>
+        <div className="mt-4 w-full max-w-md">
+          <div id="google-login-button"></div>
+        </div>
         <div className="mt-4 text-sm text-gray-600">
           <Link to="/forgot-password" className="text-primary underline">Forgot Password?</Link>
         </div>

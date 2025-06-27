@@ -24,7 +24,7 @@ export default function Wishlist() {
                 />
                 <div className="mt-2 font-semibold truncate">{w.product.name}</div>
               </Link>
-              <div className="text-primary font-bold mb-2">${w.product.price?.current}</div>
+              <div className="text-primary font-bold mb-2">₨{w.product.price?.current}</div>
               <button
                 className="bg-red-500 text-white px-4 py-1 rounded mt-auto"
                 onClick={() => removeFromWishlist(w.product._id || w.product)}

@@ -149,12 +149,12 @@ export default function Checkout({ showToast }) {
         ) : cart.map(item => (
           <div className="mb-2 flex justify-between" key={item.product._id}>
             <span>{item.product.name} x{item.quantity}</span>
-            <span>${item.product.price.current * item.quantity}</span>
+            <span>₨{item.product.price.current * item.quantity}</span>
           </div>
         ))}
         <div className="flex justify-between mb-2 mt-4">
           <span>Subtotal:</span>
-          <span>${total}</span>
+          <span>₨{total}</span>
         </div>
         <div className="flex justify-between mb-2">
           <span>Shipping:</span>
@@ -162,7 +162,7 @@ export default function Checkout({ showToast }) {
         </div>
         <div className="flex justify-between font-bold text-lg mb-4">
           <span>Total:</span>
-          <span>${total}</span>
+          <span>₨{total}</span>
         </div>
       </div>
     </div>

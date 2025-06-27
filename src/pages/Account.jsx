@@ -240,7 +240,7 @@ export default function Account() {
                     <td className="py-2">{order.orderNumber}</td>
                     <td>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}</td>
                     <td><OrderStatusBar status={order.status} /></td>
-                    <td>${order.totals?.total || 0}</td>
+                    <td>₨{order.totals?.total || 0}</td>
                     <td>
                       {order.items.map(item => (
                         <span key={item.product} className="inline-block mr-2">

@@ -20,7 +20,8 @@ const productSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['rings', 'necklaces', 'earrings', 'bracelets', 'watches', 'handbags', 'scarves', 'other']
+    trim: true,
+    maxlength: 50
   },
   subcategory: {
     type: String,
@@ -42,8 +43,8 @@ const productSchema = new mongoose.Schema({
     },
     currency: {
       type: String,
-      default: 'USD',
-      enum: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD']
+      default: 'PKR',
+      enum: ['PKR', 'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD']
     }
   },
   images: [{

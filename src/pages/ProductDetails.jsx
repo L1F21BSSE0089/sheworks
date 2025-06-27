@@ -92,9 +92,9 @@ export default function ProductDetails({ showToast }) {
             {"★".repeat(Math.round(product.rating?.average || 0))}
             <span className="text-gray-500 text-xs ml-1">({product.rating?.count || 0} reviews)</span>
           </div>
-          <div className="text-primary text-2xl font-bold mb-2">${product.price.current}
+          <div className="text-primary text-2xl font-bold mb-2">₨{product.price.current}
             {product.price.original && (
-              <span className="text-gray-400 line-through ml-2 text-lg">${product.price.original}</span>
+              <span className="text-gray-400 line-through ml-2 text-lg">₨{product.price.original}</span>
             )}
           </div>
           {product.discount && product.discount.percentage ? (

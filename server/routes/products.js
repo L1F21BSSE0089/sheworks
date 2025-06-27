@@ -43,11 +43,14 @@ router.get('/:id', async (req, res) => {
 
 // Create product (vendor only)
 router.post('/', verifyToken, [
-  body('name').notEmpty(),
-  body('description').notEmpty(),
-  body('category').notEmpty(),
-  body('price.current').isNumeric(),
-  body('inventory.stock').isInt({ min: 0 })
+  body('name').notEmpty().withMessage('Product name is required'),
+  body('description').notEmpty().withMessage('Product description is required'),
+  body('category')
+    .notEmpty().withMessage('Category is required')
+    .isLength({ min: 2, max: 50 }).withMessage('Category must be between 2 and 50 characters')
+    .matches(/^[^<>{}]*$/).withMessage('Category contains invalid characters'),
+  body('price.current').isNumeric().withMessage('Price must be a valid number'),
+  body('inventory.stock').isInt({ min: 0 }).withMessage('Stock must be a non-negative integer')
 ], async (req, res) => {
   try {
     console.log('=== PRODUCT CREATION START ===');
@@ -62,7 +65,13 @@ router.post('/', verifyToken, [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: errors.array().map(err => ({
+          field: err.path,
+          message: err.msg
+        }))
+      });
     }
     
     console.log('Looking for vendor with ID:', req.user.userId);
@@ -88,6 +97,19 @@ router.post('/', verifyToken, [
     console.error('Error message:', err.message);
     console.error('Error stack:', err.stack);
     console.error('=== END ERROR ===');
+    
+    // Handle Mongoose validation errors
+    if (err.name === 'ValidationError') {
+      const validationErrors = Object.values(err.errors).map(error => ({
+        field: error.path,
+        message: error.message
+      }));
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: validationErrors 
+      });
+    }
+    
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });

@@ -259,4 +259,17 @@ router.get('/customers', verifyToken, async (req, res) => {
   }
 });
 
+// Find recipient by email (for starting new conversation)
+router.post('/find-recipient', verifyToken, async (req, res) => {
+  const { email } = req.body;
+  let recipient = await User.findOne({ email });
+  let type = 'customer';
+  if (!recipient) {
+    recipient = await Vendor.findOne({ email });
+    type = 'vendor';
+  }
+  if (!recipient) return res.status(404).json({ error: 'Recipient not found' });
+  res.json({ id: recipient._id, type });
+});
+
 module.exports = router; 

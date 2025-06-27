@@ -259,7 +259,7 @@ export default function Home({ showToast }) {
             {filters.tags.map(tag => <span key={tag} className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Tag: {tag} <button className="ml-1" onClick={() => removeFilter("tags", tag)}>×</button></span>)}
             {filters.rating > 0 && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Rating: {filters.rating}★ & up <button className="ml-1" onClick={() => removeFilter("rating")}>×</button></span>}
             {filters.discount > 0 && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Discount: {filters.discount}%+ <button className="ml-1" onClick={() => removeFilter("discount")}>×</button></span>}
-            {(filters.price[0] !== priceRange[0] || filters.price[1] !== priceRange[1]) && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Price: ${filters.price[0]} - ${filters.price[1]} <button className="ml-1" onClick={() => removeFilter("price")}>×</button></span>}
+            {(filters.price[0] !== priceRange[0] || filters.price[1] !== priceRange[1]) && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Price: ₨{filters.price[0]} - ₨{filters.price[1]} <button className="ml-1" onClick={() => removeFilter("price")}>×</button></span>}
           </div>
           {/* Product Grid */}
           {loading ? (
@@ -313,9 +313,9 @@ export default function Home({ showToast }) {
                   </div>
                   <div className="mt-2 font-semibold truncate">{product.name}</div>
                   <div className="text-primary font-bold">
-                    ${product.price.current}
+                    ₨{product.price.current}
                     {product.price.original && (
-                      <span className="text-gray-400 line-through ml-2">${product.price.original}</span>
+                      <span className="text-gray-400 line-through ml-2">₨{product.price.original}</span>
                     )}
                   </div>
                   <div className="text-yellow-500">
@@ -371,9 +371,9 @@ export default function Home({ showToast }) {
                 </div>
                 <div className="mt-2 font-semibold truncate">{product.name}</div>
                 <div className="text-primary font-bold">
-                  ${product.price.current}
+                  ₨{product.price.current}
                   {product.price.original && (
-                    <span className="text-gray-400 line-through ml-2">${product.price.original}</span>
+                    <span className="text-gray-400 line-through ml-2">₨{product.price.original}</span>
                   )}
                 </div>
                 <div className="text-yellow-500">

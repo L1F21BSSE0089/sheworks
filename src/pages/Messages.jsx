@@ -31,6 +31,9 @@ export default function Messages() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
+  const [showNewMessageModal, setShowNewMessageModal] = useState(false);
+  const [newRecipientEmail, setNewRecipientEmail] = useState("");
+  const [newMessageError, setNewMessageError] = useState(null);
 
   // Connect to socket on mount
   useEffect(() => {
@@ -129,6 +132,38 @@ export default function Messages() {
     return languages.find(lang => lang.code === code)?.flag || "🌐";
   };
 
+  // Handler for starting a new conversation (placeholder logic)
+  const handleStartNewConversation = async () => {
+    setNewMessageError(null);
+    if (!newRecipientEmail) {
+      setNewMessageError("Please enter recipient email");
+      return;
+    }
+    try {
+      // Find recipient by email
+      const res = await apiService.request("/messages/find-recipient", {
+        method: "POST",
+        body: JSON.stringify({ email: newRecipientEmail }),
+      });
+      if (!res.id || !res.type) {
+        setNewMessageError("Recipient not found");
+        return;
+      }
+      // Send a first message to start the conversation
+      await apiService.sendMessage({
+        recipientId: res.id,
+        content: "Hi!",
+        language: selectedLanguage,
+      });
+      setShowNewMessageModal(false);
+      setNewRecipientEmail("");
+      // Optionally, refresh conversations
+      apiService.getConversations().then(r => setConversations(r.conversations || []));
+    } catch (err) {
+      setNewMessageError(err.message || "Failed to start conversation");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto p-2 md:p-4">
@@ -136,9 +171,18 @@ export default function Messages() {
           <div className="flex flex-col md:flex-row h-[80vh] md:h-[600px]">
             {/* Sidebar - Conversation List */}
             <div className="w-full md:w-1/3 border-r border-gray-200 bg-gray-50 max-h-60 md:max-h-full overflow-y-auto">
-              <div className="p-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-800">Messages</h2>
-                <p className="text-sm text-gray-600">Chat with our vendors</p>
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">Messages</h2>
+                  <p className="text-sm text-gray-600">Chat with our vendors</p>
+                </div>
+                <button
+                  className="ml-2 p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+                  title="New Message"
+                  onClick={() => setShowNewMessageModal(true)}
+                >
+                  +
+                </button>
               </div>
               <div className="overflow-y-auto h-48 md:h-full">
                 {loading ? (
@@ -289,6 +333,36 @@ export default function Messages() {
           </div>
         </div>
       </div>
+
+      {/* New Message Modal */}
+      {showNewMessageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm relative">
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+              onClick={() => setShowNewMessageModal(false)}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h3 className="text-lg font-semibold mb-4">Start New Conversation</h3>
+            <input
+              type="email"
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-2"
+              placeholder="Recipient Email"
+              value={newRecipientEmail}
+              onChange={e => setNewRecipientEmail(e.target.value)}
+            />
+            {newMessageError && <div className="text-red-500 text-sm mb-2">{newMessageError}</div>}
+            <button
+              className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+              onClick={handleStartNewConversation}
+            >
+              Start Chat
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
