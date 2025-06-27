@@ -5,6 +5,7 @@ import apiService from "../services/api";
 import { useNavigate } from "react-router-dom";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { FaCreditCard, FaPaypal, FaMoneyBillWave, FaLock, FaShieldAlt, FaTruck, FaCheckCircle } from "react-icons/fa";
+import DropIn from 'braintree-web-drop-in-react';
 
 export default function Checkout({ showToast }) {
   const { cart, total, clearCart } = useCart();
@@ -34,6 +35,8 @@ export default function Checkout({ showToast }) {
   const [orderId, setOrderId] = useState(null);
   const [shippingMethod, setShippingMethod] = useState("standard");
   const [cardComplete, setCardComplete] = useState(false);
+  const [braintreeInstance, setBraintreeInstance] = useState(null);
+  const [braintreeToken, setBraintreeToken] = useState(null);
 
   const shippingMethods = [
     { id: "standard", name: "Standard Delivery", cost: 0, time: "3-5 business days" },
@@ -49,6 +52,14 @@ export default function Checkout({ showToast }) {
       navigate("/cart");
     }
   }, [cart, navigate]);
+
+  useEffect(() => {
+    if (paymentMethod === 'card') {
+      apiService.request('/orders/braintree/token')
+        .then(res => setBraintreeToken(res.clientToken))
+        .catch(() => setBraintreeToken(null));
+    }
+  }, [paymentMethod]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -101,66 +112,53 @@ export default function Checkout({ showToast }) {
 
       switch (paymentMethod) {
         case "card":
-          // Create payment intent with Stripe
-          const intentRes = await apiService.request("/orders/create-payment-intent", {
-            method: "POST",
-            body: { 
-              amount: finalTotal * 100, // Convert to cents
-              currency: "pkr",
-              metadata: {
-                order_type: "product_purchase"
-              }
-            },
-          });
-
-          const cardElement = elements.getElement(CardElement);
-          const { paymentIntent, error: stripeError } = await stripe.confirmCardPayment(
-            intentRes.clientSecret, 
-            {
-              payment_method: {
-                card: cardElement,
-                billing_details: { 
-                  name: `${formData.firstName} ${formData.lastName}`, 
-                  email: formData.email 
-                },
+          // Try Stripe first
+          try {
+            const intentRes = await apiService.request("/orders/create-payment-intent", {
+              method: "POST",
+              body: { 
+                amount: finalTotal * 100, // Convert to cents
+                currency: "pkr",
+                metadata: { order_type: "product_purchase" }
               },
-            }
-          );
-
-          if (stripeError) throw new Error(stripeError.message);
-          if (paymentIntent.status !== "succeeded") throw new Error("Payment failed");
-          
-          paymentResult = {
-            method: "card",
-            status: "paid",
-            transactionId: paymentIntent.id,
-            amount: finalTotal
-          };
-          break;
-
-        case "paypal":
-          // Initialize PayPal payment
-          const paypalRes = await apiService.request("/orders/create-paypal-order", {
-            method: "POST",
-            body: {
-              amount: finalTotal,
-              currency: "PKR",
-              items: cart.map(item => ({
-                name: item.product.name,
-                quantity: item.quantity,
-                price: item.product.price.current
-              }))
-            }
-          });
-          
-          // In a real implementation, you'd redirect to PayPal
-          // For now, we'll simulate a successful payment
-          paymentResult = {
-            method: "paypal",
-            status: "paid",
-            transactionId: `paypal_${Date.now()}`,
-            amount: finalTotal
-          };
+            });
+            const cardElement = elements.getElement(CardElement);
+            const { paymentIntent, error: stripeError } = await stripe.confirmCardPayment(
+              intentRes.clientSecret, 
+              {
+                payment_method: {
+                  card: cardElement,
+                  billing_details: { 
+                    name: `${formData.firstName} ${formData.lastName}`, 
+                    email: formData.email 
+                  },
+                },
+              }
+            );
+            if (stripeError) throw new Error(stripeError.message);
+            if (paymentIntent.status !== "succeeded") throw new Error("Payment failed");
+            paymentResult = {
+              method: "card",
+              status: "paid",
+              transactionId: paymentIntent.id,
+              amount: finalTotal
+            };
+          } catch (stripeErr) {
+            // If Stripe fails, try Braintree
+            if (!braintreeInstance) throw new Error('Payment form not ready');
+            const { nonce } = await braintreeInstance.requestPaymentMethod();
+            const result = await apiService.request('/orders/braintree/checkout', {
+              method: 'POST',
+              body: { paymentMethodNonce: nonce, amount: finalTotal },
+            });
+            if (!result.success) throw new Error(result.message || 'Payment failed');
+            paymentResult = {
+              method: 'card',
+              status: 'paid',
+              transactionId: result.transaction.id,
+              amount: finalTotal
+            };
+          }
           break;
 
         case "cod":
@@ -362,22 +360,6 @@ export default function Checkout({ showToast }) {
           <input
             type="radio"
             name="payment"
-            value="paypal"
-            checked={paymentMethod === "paypal"}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            className="mr-3"
-          />
-          <FaPaypal className="text-blue-500 mr-3" />
-          <div className="flex-1">
-            <div className="font-medium">PayPal</div>
-            <div className="text-sm text-gray-600">Pay with your PayPal account</div>
-          </div>
-        </label>
-
-        <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-          <input
-            type="radio"
-            name="payment"
             value="cod"
             checked={paymentMethod === "cod"}
             onChange={(e) => setPaymentMethod(e.target.value)}
@@ -394,35 +376,28 @@ export default function Checkout({ showToast }) {
       {paymentMethod === "card" && (
         <div className="mt-6 p-4 border rounded-lg bg-white">
           <div className="mb-2 font-medium">Card Details</div>
-          <CardElement
-            options={{
-              style: {
-                base: {
-                  fontSize: '16px',
-                  color: '#424770',
-                  '::placeholder': {
-                    color: '#aab7c4',
+          <div style={{ marginBottom: 16 }}>
+            <CardElement
+              options={{
+                style: {
+                  base: {
+                    fontSize: '16px',
+                    color: '#424770',
+                    '::placeholder': { color: '#aab7c4' },
                   },
+                  invalid: { color: '#9e2146' },
                 },
-                invalid: {
-                  color: '#9e2146',
-                },
-              },
-            }}
-            onChange={handleCardChange}
-          />
-        </div>
-      )}
-
-      {paymentMethod === "paypal" && (
-        <div className="mt-6 p-4 border rounded-lg bg-blue-50">
-          <div className="flex items-center gap-2 text-blue-700">
-            <FaPaypal />
-            <span className="font-medium">PayPal</span>
+              }}
+            />
           </div>
-          <p className="text-sm text-gray-600 mt-2">
-            You will be redirected to PayPal to complete your payment securely.
-          </p>
+          {braintreeToken ? (
+            <DropIn
+              options={{ authorization: braintreeToken }}
+              onInstance={instance => setBraintreeInstance(instance)}
+            />
+          ) : (
+            <div>Loading payment form...</div>
+          )}
         </div>
       )}
 
