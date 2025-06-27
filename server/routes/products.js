@@ -20,7 +20,7 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// Get all products
+// Get all products - Optimized for speed
 router.get('/', async (req, res) => {
   try {
     console.log('=== GET PRODUCTS START ===');
@@ -54,21 +54,27 @@ router.get('/', async (req, res) => {
     
     const skip = (page - 1) * limit;
     
-    // Optimized query - only populate essential fields
+    // Ultra-optimized query - only essential fields, lean queries, no population
     const products = await Product.find(query)
       .select('name description category price images rating tags isActive createdAt')
       .sort(sortOption)
       .limit(parseInt(limit))
       .skip(skip)
-      .lean(); // Use lean() for faster queries
+      .lean() // Use lean() for maximum speed
+      .exec(); // Explicit execution for better performance
       
-    const total = await Product.countDocuments(query);
+    // Only count if we have filters or pagination
+    let total = products.length;
+    if (Object.keys(query).length > 1 || page > 1) {
+      total = await Product.countDocuments(query).exec();
+    }
     
     console.log('Found products:', products.length, 'of', total);
     console.log('=== GET PRODUCTS SUCCESS ===');
     
-    // Add cache headers for better performance
-    res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+    // Add aggressive cache headers for better performance
+    res.set('Cache-Control', 'public, max-age=600'); // Cache for 10 minutes
+    res.set('ETag', `products-${products.length}-${Date.now()}`);
     
     res.json({ 
       products,
