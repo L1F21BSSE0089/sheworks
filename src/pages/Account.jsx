@@ -24,8 +24,6 @@ export default function Account() {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState(null);
-  const [returns, setReturns] = useState([]);
-  const [cancellations, setCancellations] = useState([]);
   const [addresses, setAddresses] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const { addToCart } = useCart();
@@ -309,60 +307,6 @@ export default function Account() {
     </>
   );
 
-  const renderReturnsSection = () => (
-    <>
-      <h2 className="text-2xl font-bold mb-4 text-primary">My Returns</h2>
-      {returns.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <p className="text-lg mb-2">No returns found</p>
-          <p className="text-sm">You haven't made any returns yet</p>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {returns.map((returnItem, index) => (
-            <div key={index} className="border rounded-lg p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold">Return #{returnItem.id}</h3>
-                  <p className="text-gray-600">{returnItem.reason}</p>
-                  <p className="text-sm text-gray-500">Status: {returnItem.status}</p>
-                </div>
-                <span className="text-primary font-semibold">₨{returnItem.amount}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
-  );
-
-  const renderCancellationsSection = () => (
-    <>
-      <h2 className="text-2xl font-bold mb-4 text-primary">My Cancellations</h2>
-      {cancellations.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <p className="text-lg mb-2">No cancellations found</p>
-          <p className="text-sm">You haven't cancelled any orders yet</p>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {cancellations.map((cancellation, index) => (
-            <div key={index} className="border rounded-lg p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-semibold">Order #{cancellation.orderId}</h3>
-                  <p className="text-gray-600">{cancellation.reason}</p>
-                  <p className="text-sm text-gray-500">Cancelled on: {new Date(cancellation.cancelledAt).toLocaleDateString()}</p>
-                </div>
-                <span className="text-red-500 font-semibold">-₨{cancellation.amount}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
-  );
-
   const renderWishlistSection = () => (
     <>
       <h2 className="text-2xl font-bold mb-4 text-primary">My Wishlist</h2>
@@ -416,10 +360,6 @@ export default function Account() {
         return renderPaymentOptionsSection();
       case "orders":
         return renderOrderHistorySection();
-      case "returns":
-        return renderReturnsSection();
-      case "cancellations":
-        return renderCancellationsSection();
       case "wishlist":
         return renderWishlistSection();
       default:
@@ -461,18 +401,6 @@ export default function Account() {
               onClick={() => setActiveSection("orders")}
             >
               Order History
-            </li>
-            <li 
-              className={`cursor-pointer hover:text-primary ${activeSection === "returns" ? "text-primary font-semibold" : "text-gray-400"}`}
-              onClick={() => setActiveSection("returns")}
-            >
-              My Returns
-            </li>
-            <li 
-              className={`cursor-pointer hover:text-primary ${activeSection === "cancellations" ? "text-primary font-semibold" : "text-gray-400"}`}
-              onClick={() => setActiveSection("cancellations")}
-            >
-              My Cancellations
             </li>
           </ul>
         </div>
