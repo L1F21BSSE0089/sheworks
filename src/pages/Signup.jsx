@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -20,6 +20,21 @@ export default function Signup() {
   const [error, setError] = useState(null);
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Initialize Google OAuth
+    if (window.google) {
+      window.google.accounts.id.initialize({
+        client_id: "YOUR_GOOGLE_CLIENT_ID", // You'll need to replace this with your actual Google Client ID
+        callback: handleGoogleSignup,
+      });
+      
+      window.google.accounts.id.renderButton(
+        document.getElementById("google-signup-button"),
+        { theme: "outline", size: "large", width: "100%" }
+      );
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,6 +68,47 @@ export default function Signup() {
       }
     } catch (err) {
       setError(err.message || "Signup failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignup = async (response) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { credential } = response;
+      const payload = JSON.parse(atob(credential.split('.')[1]));
+      
+      const googleData = {
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+        googleId: payload.sub
+      };
+
+      const result = await fetch(`${import.meta.env.VITE_API_URL}/auth/google`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(googleData),
+      });
+
+      const data = await result.json();
+
+      if (!result.ok) {
+        throw new Error(data.error || 'Google signup failed');
+      }
+
+      // Store token and user data
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      navigate("/account");
+    } catch (err) {
+      setError(err.message || "Google signup failed");
     } finally {
       setLoading(false);
     }
@@ -195,10 +251,7 @@ export default function Signup() {
           </button>
           {error && <div className="text-red-500 text-sm text-center">{error}</div>}
         </form>
-        <button className="bg-white border mt-4 w-full max-w-md py-2 rounded flex items-center justify-center gap-2">
-          <img src="/google.png" alt="Google" className="h-5" />
-          Sign up with Google
-        </button>
+        <div id="google-signup-button" className="mt-4 w-full max-w-md"></div>
         <div className="mt-4 text-sm text-gray-600">
           Already have an account? <Link to="/login" className="text-primary underline">Login</Link>
         </div>

@@ -24,8 +24,11 @@ router.post('/register/user', [
   body('lastName').notEmpty().withMessage('Last name is required')
 ], async (req, res) => {
   try {
+    console.log('User registration attempt:', { email: req.body.email, username: req.body.username });
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
@@ -37,11 +40,14 @@ router.post('/register/user', [
     });
 
     if (existingUser) {
+      console.log('User already exists:', { email, username });
       return res.status(400).json({ 
         error: 'User with this email or username already exists' 
       });
     }
 
+    console.log('Creating new user...');
+    
     // Create new user
     const user = new User({
       username,
@@ -53,6 +59,7 @@ router.post('/register/user', [
     });
 
     await user.save();
+    console.log('User created successfully:', user._id);
 
     // Generate token
     const token = generateToken(user._id, 'customer');
@@ -71,8 +78,9 @@ router.post('/register/user', [
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Registration error details:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 
@@ -257,6 +265,63 @@ router.post('/login/vendor', [
   } catch (error) {
     console.error('Vendor login error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Google OAuth routes
+router.post('/google', async (req, res) => {
+  try {
+    console.log('Google OAuth attempt:', req.body);
+    
+    const { email, name, picture, googleId } = req.body;
+    
+    if (!email || !name) {
+      return res.status(400).json({ error: 'Email and name are required' });
+    }
+
+    // Check if user already exists
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Create new user from Google data
+      const [firstName, ...lastNameParts] = name.split(' ');
+      const lastName = lastNameParts.join(' ') || '';
+      
+      user = new User({
+        username: email.split('@')[0] + Math.random().toString(36).substr(2, 5),
+        email,
+        firstName,
+        lastName,
+        password: 'google-auth-' + Math.random().toString(36).substr(2, 15), // Random password for Google users
+        avatar: picture,
+        isVerified: true, // Google accounts are pre-verified
+        googleId: googleId
+      });
+
+      await user.save();
+      console.log('Google user created:', user._id);
+    }
+
+    // Generate token
+    const token = generateToken(user._id, 'customer');
+
+    res.json({
+      message: 'Google authentication successful',
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        avatar: user.avatar
+      }
+    });
+
+  } catch (error) {
+    console.error('Google OAuth error:', error);
+    res.status(500).json({ error: 'Google authentication failed', details: error.message });
   }
 });
 
