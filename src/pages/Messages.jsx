@@ -1,26 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { FaPaperPlane, FaGlobe, FaEllipsisV } from "react-icons/fa";
+import { FaPaperPlane, FaGlobe, FaEllipsisV, FaChevronDown } from "react-icons/fa";
 import apiService from "../services/api";
 import socketService from "../services/socket";
 import { useAuth } from "../context/AuthContext";
-
-const languages = [
-  { code: "en", name: "English", flag: "🇺🇸" },
-  { code: "es", name: "Español", flag: "🇪🇸" },
-  { code: "fr", name: "Français", flag: "🇫🇷" },
-  { code: "de", name: "Deutsch", flag: "🇩🇪" },
-  { code: "it", name: "Italiano", flag: "🇮🇹" },
-  { code: "pt", name: "Português", flag: "🇵🇹" },
-  { code: "ru", name: "Русский", flag: "🇷🇺" },
-  { code: "zh", name: "中文", flag: "🇨🇳" },
-  { code: "ja", name: "日本語", flag: "🇯🇵" },
-  { code: "ko", name: "한국어", flag: "🇰🇷" },
-  { code: "ar", name: "العربية", flag: "🇸🇦" },
-  { code: "hi", name: "हिन्दी", flag: "🇮🇳" },
-];
+import { useLanguage, LANGUAGES } from "../context/LanguageContext";
 
 export default function Messages() {
   const { user, userType } = useAuth();
+  const { language: userLanguage, translate, translateMessage, translateBatch, isTranslating } = useLanguage();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -30,6 +17,8 @@ export default function Messages() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
+  const [translatedMessages, setTranslatedMessages] = useState({});
+  const [translationError, setTranslationError] = useState(null);
   const messagesEndRef = useRef(null);
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
   const [newRecipientEmail, setNewRecipientEmail] = useState("");
@@ -81,6 +70,30 @@ export default function Messages() {
     return unsubscribe;
   }, [selectedConversation, user]);
 
+  // Translate messages when user language changes
+  useEffect(() => {
+    const translateAllMessages = async () => {
+      if (messages.length === 0) return;
+      
+      try {
+        setTranslationError(null);
+        const translatedResults = await translateBatch(messages, userLanguage);
+        
+        const newTranslatedMessages = {};
+        translatedResults.forEach(result => {
+          newTranslatedMessages[result.messageId] = result.translatedText;
+        });
+        
+        setTranslatedMessages(newTranslatedMessages);
+      } catch (error) {
+        console.error('Translation error:', error);
+        setTranslationError('Translation failed. Showing original messages.');
+      }
+    };
+
+    translateAllMessages();
+  }, [messages, userLanguage, translateBatch]);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -124,12 +137,38 @@ export default function Messages() {
     }
   };
 
+  const handleLanguageChange = async (newLanguage) => {
+    if (newLanguage === selectedLanguage) return;
+    
+    // Translate the current message if it exists
+    if (newMessage.trim()) {
+      try {
+        const translated = await translate(newMessage, selectedLanguage, newLanguage, 'conversation');
+        setNewMessage(translated);
+      } catch (error) {
+        console.error('Translation error:', error);
+        // Keep original message if translation fails
+      }
+    }
+    
+    setSelectedLanguage(newLanguage);
+    setShowLanguageSelector(false);
+  };
+
   const getLanguageName = (code) => {
-    return languages.find(lang => lang.code === code)?.name || code;
+    return LANGUAGES[code]?.name || code;
   };
 
   const getLanguageFlag = (code) => {
-    return languages.find(lang => lang.code === code)?.flag || "🌐";
+    return LANGUAGES[code]?.flag || "🌐";
+  };
+
+  const getDisplayMessage = (message) => {
+    const messageId = message._id || message.id;
+    if (message.content.language === userLanguage) {
+      return message.content.text;
+    }
+    return translatedMessages[messageId] || message.content.text;
   };
 
   // Handler for starting a new conversation (placeholder logic)
@@ -229,13 +268,6 @@ export default function Messages() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setShowLanguageSelector(!showLanguageSelector)}
-                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                      title="Select Language"
-                    >
-                      <FaGlobe className="text-gray-600" />
-                    </button>
                     <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                       <FaEllipsisV className="text-gray-600" />
                     </button>
@@ -243,60 +275,54 @@ export default function Messages() {
                 </div>
               </div>
 
-              {/* Language Selector */}
-              {showLanguageSelector && (
-                <div className="p-4 border-b border-gray-200 bg-gray-50">
-                  <div className="grid grid-cols-3 gap-2">
-                    {languages.map((language) => (
-                      <button
-                        key={language.code}
-                        onClick={() => {
-                          setSelectedLanguage(language.code);
-                          setShowLanguageSelector(false);
-                        }}
-                        className={`p-2 rounded-lg text-sm flex items-center space-x-2 transition-colors ${
-                          selectedLanguage === language.code
-                            ? "bg-blue-500 text-white"
-                            : "bg-white hover:bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        <span>{language.flag}</span>
-                        <span>{language.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {loading ? (
                   <div className="text-center text-gray-400">Loading messages...</div>
-                ) : messages.length === 0 ? (
-                  <div className="text-center text-gray-400">No messages yet.</div>
-                ) : messages.map((message, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex ${message.sender.id === user._id ? "justify-end" : "justify-start"}`}
-                  >
-                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      message.sender.id === user._id
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-200 text-gray-800"
-                    }`}>
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="text-xs opacity-75">{getLanguageFlag(message.content.language)}</span>
-                        <span className="text-xs opacity-75">{getLanguageName(message.content.language)}</span>
-                      </div>
-                      <p className="text-sm">{message.content.text}</p>
-                      <p className={`text-xs mt-1 ${
-                        message.sender.id === user._id ? "text-blue-100" : "text-gray-500"
-                      }`}>
-                        {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
-                      </p>
+                ) : isTranslating ? (
+                  <div className="text-center text-gray-400">
+                    <div className="flex items-center justify-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      <span>AI is translating messages...</span>
                     </div>
                   </div>
-                ))}
+                ) : messages.length === 0 ? (
+                  <div className="text-center text-gray-400">No messages yet.</div>
+                ) : (
+                  <>
+                    {translationError && (
+                      <div className="text-center text-orange-500 text-sm bg-orange-50 p-2 rounded-lg">
+                        {translationError}
+                      </div>
+                    )}
+                    {messages.map((message, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex ${message.sender.id === user._id ? "justify-end" : "justify-start"}`}
+                      >
+                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                          message.sender.id === user._id
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-200 text-gray-800"
+                        }`}>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="text-xs opacity-75">{getLanguageFlag(message.content.language)}</span>
+                            <span className="text-xs opacity-75">{getLanguageName(message.content.language)}</span>
+                            {message.content.language !== userLanguage && (
+                              <span className="text-xs opacity-50">(AI translated)</span>
+                            )}
+                          </div>
+                          <p className="text-sm">{getDisplayMessage(message)}</p>
+                          <p className={`text-xs mt-1 ${
+                            message.sender.id === user._id ? "text-blue-100" : "text-gray-500"
+                          }`}>
+                            {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -309,14 +335,20 @@ export default function Messages() {
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
                       placeholder={`Type your message in ${getLanguageName(selectedLanguage)}...`}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      className="w-full px-4 py-2 pr-20 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                       rows="1"
                       disabled={!selectedConversation || sending}
                     />
                     <div className="absolute right-2 top-2">
-                      <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                        {getLanguageFlag(selectedLanguage)} {getLanguageName(selectedLanguage)}
-                      </span>
+                      <button
+                        onClick={() => setShowLanguageSelector(!showLanguageSelector)}
+                        className="flex items-center space-x-1 text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors"
+                        title="Select AI translation language"
+                      >
+                        <span>{getLanguageFlag(selectedLanguage)}</span>
+                        <span>{getLanguageName(selectedLanguage)}</span>
+                        <FaChevronDown className="text-xs" />
+                      </button>
                     </div>
                   </div>
                   <button
@@ -327,6 +359,32 @@ export default function Messages() {
                     <FaPaperPlane />
                   </button>
                 </div>
+                
+                {/* Language Selector Dropdown */}
+                {showLanguageSelector && (
+                  <div className="mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                    <div className="mb-2 text-xs text-gray-600">
+                      Select language for AI-powered translation:
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
+                      {Object.entries(LANGUAGES).map(([code, lang]) => (
+                        <button
+                          key={code}
+                          onClick={() => handleLanguageChange(code)}
+                          className={`p-2 rounded-lg text-sm flex items-center space-x-2 transition-colors ${
+                            selectedLanguage === code
+                              ? "bg-blue-500 text-white"
+                              : "bg-white hover:bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          <span>{lang.flag}</span>
+                          <span>{lang.nativeName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 {error && <div className="text-red-500 text-sm text-center mt-2">{error}</div>}
               </div>
             </div>

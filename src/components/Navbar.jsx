@@ -3,7 +3,7 @@ import { FaHeart, FaShoppingCart, FaUser, FaComments, FaBell, FaBars, FaTimes, F
 import { useEffect, useState, useRef } from "react";
 import apiService from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { useLanguage } from "../context/LanguageContext";
+import { useLanguage, LANGUAGES } from "../context/LanguageContext";
 import { useWishlist } from "../context/WishlistContext";
 
 const navLinks = [
@@ -159,8 +159,11 @@ export default function Navbar() {
               onChange={e => setLanguage(e.target.value)}
               aria-label="Select language"
             >
-              <option value="en">English</option>
-              <option value="ur">اردو</option>
+              {Object.entries(LANGUAGES).map(([code, lang]) => (
+                <option key={code} value={code}>
+                  {lang.flag} {lang.nativeName}
+                </option>
+              ))}
             </select>
             {user ? (
               <button
@@ -378,8 +381,11 @@ export default function Navbar() {
                   onChange={e => setLanguage(e.target.value)}
                   aria-label="Select language"
                 >
-                  <option value="en">English</option>
-                  <option value="ur">اردو</option>
+                  {Object.entries(LANGUAGES).map(([code, lang]) => (
+                    <option key={code} value={code}>
+                      {lang.flag} {lang.nativeName}
+                    </option>
+                  ))}
                 </select>
               </div>
 

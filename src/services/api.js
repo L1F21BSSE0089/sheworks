@@ -264,6 +264,21 @@ class ApiService {
       body: JSON.stringify(googleData),
     });
   }
+
+  // Translation methods
+  async translateText(text, fromLang, toLang, context = 'general') {
+    return this.request("/messages/translate", {
+      method: "POST",
+      body: JSON.stringify({ text, fromLang, toLang, context }),
+    });
+  },
+
+  async translateBatch(messages, targetLang) {
+    return this.request("/messages/translate-batch", {
+      method: "POST",
+      body: JSON.stringify({ messages, targetLang }),
+    });
+  },
 }
 
 // Create and export a singleton instance

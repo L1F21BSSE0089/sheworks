@@ -23,6 +23,158 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+// AI-Powered Translation Service
+const translateText = async (text, fromLang, toLang, context = 'general') => {
+  if (!text || fromLang === toLang) return text;
+  
+  try {
+    // Try Google Translate API first (most reliable)
+    if (process.env.GOOGLE_TRANSLATE_API_KEY) {
+      const googleResponse = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${process.env.GOOGLE_TRANSLATE_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          q: text,
+          source: fromLang,
+          target: toLang,
+          format: 'text'
+        })
+      });
+
+      if (googleResponse.ok) {
+        const data = await googleResponse.json();
+        return data.data.translations[0].translatedText;
+      }
+    }
+
+    // Try OpenAI for context-aware translation
+    if (process.env.OPENAI_API_KEY) {
+      const contextPrompt = `Translate the following ${context} text from ${fromLang} to ${toLang}. Maintain the original meaning and tone: "${text}"`;
+      
+      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a professional translator. Translate the given text accurately while preserving the original meaning, tone, and context. Respond only with the translated text, nothing else.`
+            },
+            {
+              role: 'user',
+              content: contextPrompt
+            }
+          ],
+          max_tokens: 150,
+          temperature: 0.3
+        })
+      });
+
+      if (openaiResponse.ok) {
+        const data = await openaiResponse.json();
+        return data.choices[0].message.content.trim();
+      }
+    }
+
+    // Fallback to LibreTranslate (free, open-source)
+    const libreResponse = await fetch('https://libretranslate.de/translate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        q: text,
+        source: fromLang,
+        target: toLang,
+        format: 'text'
+      })
+    });
+
+    if (libreResponse.ok) {
+      const data = await libreResponse.json();
+      return data.translatedText;
+    }
+
+    // Final fallback to MyMemory
+    const myMemoryResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`);
+    const myMemoryData = await myMemoryResponse.json();
+    return myMemoryData.responseData?.translatedText || text;
+
+  } catch (error) {
+    console.error('AI Translation error:', error);
+    return text; // Return original text if all translations fail
+  }
+};
+
+// Translation endpoint
+router.post('/translate', verifyToken, async (req, res) => {
+  try {
+    const { text, fromLang, toLang, context = 'general' } = req.body;
+    
+    if (!text || !fromLang || !toLang) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const translatedText = await translateText(text, fromLang, toLang, context);
+    res.json({ translatedText, originalText: text, fromLang, toLang });
+
+  } catch (error) {
+    console.error('Translation endpoint error:', error);
+    res.status(500).json({ error: 'Translation failed' });
+  }
+});
+
+// Batch translation endpoint for multiple messages
+router.post('/translate-batch', verifyToken, async (req, res) => {
+  try {
+    const { messages, targetLang } = req.body;
+    
+    if (!messages || !Array.isArray(messages) || !targetLang) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const translatedMessages = [];
+    
+    for (const message of messages) {
+      if (message.content.language !== targetLang) {
+        const translatedText = await translateText(
+          message.content.text, 
+          message.content.language, 
+          targetLang, 
+          'conversation'
+        );
+        translatedMessages.push({
+          messageId: message._id || message.id,
+          originalText: message.content.text,
+          translatedText,
+          originalLanguage: message.content.language,
+          targetLanguage: targetLang
+        });
+      } else {
+        translatedMessages.push({
+          messageId: message._id || message.id,
+          originalText: message.content.text,
+          translatedText: message.content.text,
+          originalLanguage: message.content.language,
+          targetLanguage: targetLang
+        });
+      }
+    }
+
+    res.json({ translatedMessages });
+
+  } catch (error) {
+    console.error('Batch translation error:', error);
+    res.status(500).json({ error: 'Batch translation failed' });
+  }
+});
+
 // Get all conversations for current user/vendor
 router.get('/conversations', verifyToken, async (req, res) => {
   try {

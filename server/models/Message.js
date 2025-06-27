@@ -44,7 +44,7 @@ const messageSchema = new mongoose.Schema({
     language: {
       type: String,
       required: true,
-      enum: ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko', 'ar', 'hi'],
+      enum: ['en', 'ur', 'ar', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko', 'hi', 'bn', 'tr', 'nl'],
       default: 'en'
     },
     translatedText: {
@@ -53,7 +53,7 @@ const messageSchema = new mongoose.Schema({
     },
     originalLanguage: {
       type: String,
-      enum: ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko', 'ar', 'hi']
+      enum: ['en', 'ur', 'ar', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko', 'hi', 'bn', 'tr', 'nl']
     }
   },
   attachments: [{
