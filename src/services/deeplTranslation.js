@@ -22,7 +22,7 @@ class DeepLTranslationService {
 
       console.log('📤 Calling backend translation endpoint...');
       
-      const response = await fetch(`${this.baseUrl}/api/messages/translate`, {
+      const response = await fetch(`${this.baseUrl}/messages/translate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -84,7 +84,7 @@ class DeepLTranslationService {
 
       console.log('📤 Calling backend batch translation endpoint...');
       
-      const response = await fetch(`${this.baseUrl}/api/messages/translate-batch`, {
+      const response = await fetch(`${this.baseUrl}/messages/translate-batch`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
