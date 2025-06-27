@@ -3,8 +3,28 @@ import { FaPaperPlane, FaGlobe, FaEllipsisV, FaChevronDown } from "react-icons/f
 import apiService from "../services/api";
 import socketService from "../services/socket";
 import { useAuth } from "../context/AuthContext";
-import { useLanguage, LANGUAGES } from "../context/LanguageContext";
+import { useLanguage } from "../context/LanguageContext";
 import deeplTranslationService from "../services/deeplTranslation";
+
+// Simple languages object for fallback
+const LANGUAGES = {
+  en: { name: "English", nativeName: "English", flag: "🇺🇸" },
+  ur: { name: "Urdu", nativeName: "اردو", flag: "🇵🇰" },
+  ar: { name: "Arabic", nativeName: "العربية", flag: "🇸🇦" },
+  es: { name: "Spanish", nativeName: "Español", flag: "🇪🇸" },
+  fr: { name: "French", nativeName: "Français", flag: "🇫🇷" },
+  de: { name: "German", nativeName: "Deutsch", flag: "🇩🇪" },
+  it: { name: "Italian", nativeName: "Italiano", flag: "🇮🇹" },
+  pt: { name: "Portuguese", nativeName: "Português", flag: "🇵🇹" },
+  ru: { name: "Russian", nativeName: "Русский", flag: "🇷🇺" },
+  zh: { name: "Chinese", nativeName: "中文", flag: "🇨🇳" },
+  ja: { name: "Japanese", nativeName: "日本語", flag: "🇯🇵" },
+  ko: { name: "Korean", nativeName: "한국어", flag: "🇰🇷" },
+  hi: { name: "Hindi", nativeName: "हिन्दी", flag: "🇮🇳" },
+  bn: { name: "Bengali", nativeName: "বাংলা", flag: "🇧🇩" },
+  tr: { name: "Turkish", nativeName: "Türkçe", flag: "🇹🇷" },
+  nl: { name: "Dutch", nativeName: "Nederlands", flag: "🇳🇱" }
+};
 
 export default function Messages() {
   const { user, userType } = useAuth();
