@@ -18,6 +18,8 @@ export default function ProductDetails({ showToast }) {
   const [submitting, setSubmitting] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [similarProducts, setSimilarProducts] = useState([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -25,12 +27,29 @@ export default function ProductDetails({ showToast }) {
       .then(res => {
         setProduct(res.product);
         setLoading(false);
+        
+        // Load similar products
+        loadSimilarProducts(res.product);
       })
       .catch(err => {
         setError(err.message);
         setLoading(false);
       });
   }, [id]);
+
+  const loadSimilarProducts = async (currentProduct) => {
+    if (!currentProduct) return;
+    
+    try {
+      setLoadingSimilar(true);
+      const res = await apiService.getSimilarProducts(currentProduct._id, 4);
+      setSimilarProducts(res.products || []);
+    } catch (err) {
+      console.error('Error loading similar products:', err);
+    } finally {
+      setLoadingSimilar(false);
+    }
+  };
 
   const isInWishlist = (productId) => wishlist.some(w => w.product && (w.product._id === productId || w.product === productId));
   const handleWishlistToggle = async (product, e) => {
@@ -288,6 +307,55 @@ export default function ProductDetails({ showToast }) {
           </div>
         ) : <div className="text-gray-400">No reviews yet.</div>}
       </div>
+
+      {/* Similar Products Section */}
+      {similarProducts.length > 0 && (
+        <div className="mt-12">
+          <h2 className="text-xl font-bold mb-4">Similar Products</h2>
+          {loadingSimilar ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-white rounded-lg shadow p-4 animate-pulse">
+                  <div className="bg-gray-300 rounded h-32 w-full mb-2"></div>
+                  <div className="bg-gray-300 rounded h-4 w-3/4 mb-2"></div>
+                  <div className="bg-gray-300 rounded h-4 w-1/2 mb-2"></div>
+                  <div className="bg-gray-300 rounded h-8 w-full"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {similarProducts.map(similarProduct => (
+                <Link to={`/products/${similarProduct._id}`} key={similarProduct._id} className="bg-white rounded-lg shadow p-4 block hover:shadow-lg transition-shadow">
+                  <div className="relative">
+                    {similarProduct.discount && similarProduct.discount.percentage ? (
+                      <span className="absolute top-2 left-2 bg-primary text-white text-xs px-2 py-1 rounded">
+                        -{similarProduct.discount.percentage}%
+                      </span>
+                    ) : null}
+                    <img
+                      src={similarProduct.images && similarProduct.images.length > 0 ? similarProduct.images[0].url : "/shop.webp"}
+                      alt={similarProduct.name}
+                      className="rounded h-32 w-full object-cover"
+                    />
+                  </div>
+                  <div className="mt-2 font-semibold truncate">{similarProduct.name}</div>
+                  <div className="text-primary font-bold">
+                    ₨{similarProduct.price?.current || 0}
+                    {similarProduct.price?.original && (
+                      <span className="text-gray-400 line-through ml-2">₨{similarProduct.price.original}</span>
+                    )}
+                  </div>
+                  <div className="text-yellow-500">
+                    {"★".repeat(Math.round(similarProduct.rating?.average || 0))}
+                    <span className="text-gray-500 text-xs"> ({similarProduct.rating?.count || 0})</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 } 

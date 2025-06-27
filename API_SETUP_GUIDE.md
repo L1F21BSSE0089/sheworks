@@ -1,172 +1,258 @@
-# 🔧 API Setup Guide for SheWorks E-commerce
+# Complete API Setup Guide for SHE E-commerce Platform
 
-## 📋 Prerequisites
-- Node.js and npm installed
-- Git repository cloned
-- Basic understanding of APIs
+This guide covers all the APIs and external services needed to make your e-commerce platform fully functional with AI-powered features.
 
----
+## 🚀 **Core Features Overview**
 
-## 🎯 Step 1: Stripe Setup
+- **AI-Powered Product Recommendations** - Collaborative filtering, content-based filtering
+- **Multilingual Chat Support** - Real-time translation in 16+ languages
+- **Advanced Search & Filtering** - Smart product discovery
+- **Real-time Messaging** - Customer-vendor communication
+- **Payment Processing** - Braintree integration
+- **Analytics & Insights** - User behavior tracking
 
-### 1.1 Create Stripe Account
-1. Go to [stripe.com](https://stripe.com)
-2. Click "Start now" and create an account
-3. Complete your business verification
-4. Navigate to Dashboard
+## 🔧 **Environment Variables Setup**
 
-### 1.2 Get Stripe API Keys
-1. In Stripe Dashboard, go to **Developers** → **API keys**
-2. You'll see two keys:
-   - **Publishable key** (starts with `pk_test_` for testing)
-   - **Secret key** (starts with `sk_test_` for testing)
-3. Copy both keys
+### **Frontend (.env.local)**
+```bash
+# Backend API URL
+VITE_API_URL=https://your-railway-app.up.railway.app
 
-### 1.3 Configure Frontend (.env file)
-Create a `.env` file in your frontend root directory:
+# Translation APIs (Choose one or multiple)
+VITE_GOOGLE_TRANSLATE_API_KEY=your_google_translate_api_key
+VITE_OPENAI_API_KEY=your_openai_api_key
+VITE_DEEPL_API_KEY=your_deepl_api_key
 
-```env
-# Frontend Environment Variables
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
-VITE_API_URL=http://localhost:5000/api
-VITE_APP_NAME=SheWorks
-VITE_APP_URL=http://localhost:5173
+# Payment Processing
+VITE_BRAINTREE_MERCHANT_ID=your_braintree_merchant_id
+VITE_BRAINTREE_PUBLIC_KEY=your_braintree_public_key
+
+# Analytics (Optional)
+VITE_GOOGLE_ANALYTICS_ID=your_ga_id
 ```
 
-### 1.4 Configure Backend (.env file)
-Create a `.env` file in your server directory:
-
-```env
-# Backend Environment Variables
-STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
-JWT_SECRET=your_jwt_secret_here
+### **Backend (.env)**
+```bash
+# Database
 MONGODB_URI=your_mongodb_connection_string
-PORT=5000
-NODE_ENV=development
+
+# JWT Secret
+JWT_SECRET=your_super_secret_jwt_key
+
+# Translation APIs
+GOOGLE_TRANSLATE_API_KEY=your_google_translate_api_key
+OPENAI_API_KEY=your_openai_api_key
+DEEPL_API_KEY=your_deepl_api_key
+
+# Payment Processing
+BRAINTREE_MERCHANT_ID=your_braintree_merchant_id
+BRAINTREE_PUBLIC_KEY=your_braintree_public_key
+BRAINTREE_PRIVATE_KEY=your_braintree_private_key
+
+# Email Service (Optional)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+
+# File Upload (Optional)
+CLOUDINARY_CLOUD_NAME=your_cloudinary_name
+CLOUDINARY_API_KEY=your_cloudinary_key
+CLOUDINARY_API_SECRET=your_cloudinary_secret
 ```
 
----
+## 📋 **API Setup Instructions**
 
-## 🎯 Step 2: PayPal Setup
+### **1. Google Translate API (Recommended)**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable the "Cloud Translation API"
+4. Create credentials (API Key)
+5. Add the API key to your environment variables
 
-### 2.1 Create PayPal Developer Account
-1. Go to [developer.paypal.com](https://developer.paypal.com)
-2. Sign up for a PayPal Developer account
-3. Navigate to Dashboard
+**Cost**: 500,000 characters/month free, then $20 per million characters
 
-### 2.2 Create PayPal App
-1. In PayPal Developer Dashboard, go to **Apps & Credentials**
-2. Click **Create App**
-3. Choose **Business** account type
-4. Give your app a name (e.g., "SheWorks E-commerce")
-5. Click **Create App**
+### **2. OpenAI API (For Advanced AI Features)**
+1. Go to [OpenAI Platform](https://platform.openai.com/)
+2. Create an account and get API key
+3. Add the API key to your environment variables
 
-### 2.3 Get PayPal Credentials
-1. After creating the app, you'll see:
-   - **Client ID**
-   - **Secret**
-2. Copy both credentials
+**Cost**: Pay-per-use, very reasonable rates (~$0.002 per 1K tokens)
 
-### 2.4 Add PayPal to Backend (.env)
-Add these to your server `.env` file:
+### **3. DeepL API (High-Quality Translation)**
+1. Go to [DeepL API](https://www.deepl.com/pro-api)
+2. Sign up for free account (500,000 characters/month)
+3. Get your API key
+4. Add to environment variables
 
-```env
-# PayPal Configuration
-PAYPAL_CLIENT_ID=your_paypal_client_id_here
-PAYPAL_CLIENT_SECRET=your_paypal_client_secret_here
-FRONTEND_URL=http://localhost:5173
+**Cost**: 500,000 characters/month free, then €5.49 per million characters
+
+### **4. Braintree Payment Processing**
+1. Go to [Braintree](https://www.braintreepayments.com/)
+2. Create a merchant account
+3. Get your credentials from the dashboard
+4. Add to environment variables
+
+**Cost**: 2.9% + $0.30 per transaction
+
+### **5. MongoDB Atlas (Database)**
+1. Go to [MongoDB Atlas](https://www.mongodb.com/atlas)
+2. Create a free cluster
+3. Get your connection string
+4. Add to environment variables
+
+**Cost**: Free tier available (512MB storage)
+
+## 🎯 **AI Features Breakdown**
+
+### **Product Recommendations**
+- **Collaborative Filtering**: Based on user purchase history
+- **Content-Based Filtering**: Based on product features and categories
+- **Popularity-Based**: Trending and best-selling products
+- **Similar Products**: AI-powered product similarity matching
+
+### **Multilingual Support**
+- **Real-time Translation**: Messages translate instantly
+- **16+ Languages**: English, Urdu, Arabic, Spanish, French, German, Italian, Portuguese, Russian, Chinese, Japanese, Korean, Hindi, Bengali, Turkish, Dutch
+- **Context-Aware**: AI understands conversation context
+- **Fallback Handling**: Multiple translation services for reliability
+
+### **Smart Search & Filtering**
+- **Full-Text Search**: Search across product names, descriptions, and tags
+- **Advanced Filters**: Price, rating, category, tags, discounts
+- **Sorting Options**: Price, rating, newest, best-selling
+- **URL Persistence**: Filters saved in URL for sharing
+
+## 🔒 **Security Features**
+
+- **JWT Authentication**: Secure token-based authentication
+- **Role-Based Access**: Customer, Vendor, Admin roles
+- **Input Validation**: Server-side validation for all inputs
+- **Rate Limiting**: API rate limiting to prevent abuse
+- **CORS Configuration**: Proper cross-origin resource sharing
+- **Environment Variables**: Sensitive data stored securely
+
+## 📱 **Responsive Design**
+
+- **Mobile-First**: Optimized for mobile devices
+- **Progressive Web App**: Can be installed on mobile devices
+- **Touch-Friendly**: Large touch targets and gestures
+- **Fast Loading**: Optimized images and lazy loading
+- **Offline Support**: Basic offline functionality
+
+## 🚀 **Deployment Instructions**
+
+### **Frontend (Vercel)**
+1. Connect your GitHub repository to Vercel
+2. Add environment variables in Vercel dashboard
+3. Deploy automatically on push to main branch
+
+### **Backend (Railway)**
+1. Connect your GitHub repository to Railway
+2. Add environment variables in Railway dashboard
+3. Deploy automatically on push to main branch
+
+## 🔧 **Testing Your Setup**
+
+### **1. Test Translation**
+```bash
+# Test translation endpoint
+curl -X POST https://your-api.com/api/messages/translate \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello world","fromLang":"en","toLang":"ur"}'
 ```
 
----
+### **2. Test Recommendations**
+```bash
+# Test AI recommendations
+curl https://your-api.com/api/products/recommendations?userId=test&limit=8
+```
 
-## 🎯 Step 3: Test the Integration
+### **3. Test Payment**
+```bash
+# Test Braintree token generation
+curl https://your-api.com/api/payments/braintree/token
+```
 
-### 3.1 Test Stripe
-1. Start your backend server: `cd server && npm start`
-2. Start your frontend: `npm run dev`
-3. Add items to cart and proceed to checkout
-4. Use Stripe test card numbers:
-   - **Visa**: 4242 4242 4242 4242
-   - **MasterCard**: 5555 5555 5555 4444
-   - **Expiry**: Any future date (e.g., 12/25)
-   - **CVC**: Any 3 digits (e.g., 123)
+## 📊 **Monitoring & Analytics**
 
-### 3.2 Test PayPal
-1. In checkout, select PayPal payment method
-2. You'll be redirected to PayPal sandbox
-3. Use PayPal sandbox account:
-   - **Email**: sb-xxxxx@business.example.com
-   - **Password**: (provided in PayPal developer dashboard)
+### **Performance Monitoring**
+- **Response Times**: Monitor API response times
+- **Error Rates**: Track error rates and types
+- **User Behavior**: Track user interactions
+- **Conversion Rates**: Monitor purchase conversions
 
----
+### **AI Model Performance**
+- **Recommendation Accuracy**: Track recommendation clicks
+- **Translation Quality**: Monitor translation feedback
+- **Search Relevance**: Track search result clicks
 
-## 🎯 Step 4: Production Setup
+## 🆘 **Troubleshooting**
 
-### 4.1 Stripe Production
-1. In Stripe Dashboard, toggle to **Live** mode
-2. Get your live API keys
-3. Update your environment variables with live keys
-4. Test with real cards (small amounts)
+### **Common Issues**
 
-### 4.2 PayPal Production
-1. In PayPal Developer Dashboard, switch to **Live** environment
-2. Get your live credentials
-3. Update environment variables
-4. Test with real PayPal accounts
+1. **Translation Not Working**
+   - Check API keys are correctly set
+   - Verify API quotas and billing
+   - Check network connectivity
 
----
+2. **Recommendations Not Loading**
+   - Ensure products are seeded in database
+   - Check AI recommendation endpoints
+   - Verify user authentication
 
-## 🔧 Troubleshooting
+3. **Payment Processing Errors**
+   - Verify Braintree credentials
+   - Check payment method validation
+   - Ensure proper error handling
 
-### Common Issues:
+4. **Real-time Features Not Working**
+   - Check WebSocket connection
+   - Verify socket.io configuration
+   - Check client-server communication
 
-1. **Stripe Error: "Invalid API key"**
-   - Check if you're using the correct key (test vs live)
-   - Ensure the key is properly copied without extra spaces
+### **Performance Optimization**
 
-2. **PayPal Error: "Invalid credentials"**
-   - Verify your PayPal Client ID and Secret
-   - Check if you're using the correct environment (sandbox vs live)
+1. **Database Indexing**
+   - Add indexes for frequently queried fields
+   - Use compound indexes for complex queries
+   - Monitor query performance
 
-3. **CORS Error**
-   - Ensure your backend CORS settings include your frontend URL
-   - Check if your API URL is correct in frontend .env
+2. **Caching Strategy**
+   - Cache frequently accessed data
+   - Use Redis for session storage
+   - Implement CDN for static assets
 
-4. **Payment Intent Creation Failed**
-   - Verify your Stripe secret key is correct
-   - Check if the amount is in the correct format (cents for USD)
+3. **API Optimization**
+   - Use pagination for large datasets
+   - Implement request throttling
+   - Optimize database queries
 
-### Debug Steps:
-1. Check browser console for frontend errors
-2. Check server logs for backend errors
-3. Verify all environment variables are set
-4. Test API endpoints with Postman or similar tool
+## 📞 **Support & Resources**
 
----
+### **Documentation**
+- [API Documentation](./API_DOCS.md)
+- [Frontend Components](./COMPONENTS.md)
+- [Database Schema](./DATABASE.md)
 
-## 📞 Support
-
-If you encounter issues:
-1. Check the error logs in browser console and server
-2. Verify all environment variables are correctly set
-3. Test with the provided test credentials
-4. Ensure your server is running and accessible
-
----
-
-## ✅ Checklist
-
-- [ ] Stripe account created
-- [ ] Stripe API keys obtained
-- [ ] PayPal developer account created
-- [ ] PayPal app created and credentials obtained
-- [ ] Frontend .env file configured
-- [ ] Backend .env file configured
-- [ ] Stripe test payment successful
-- [ ] PayPal test payment successful
-- [ ] Production keys configured (when ready)
-- [ ] All payment methods working
+### **Community**
+- GitHub Issues: Report bugs and request features
+- Discord: Join our community for help
+- Email: Direct support for urgent issues
 
 ---
 
-**🎉 Congratulations! Your payment integration is now complete!** 
+## 🎉 **Success Checklist**
+
+- [ ] All environment variables configured
+- [ ] Translation APIs working
+- [ ] AI recommendations loading
+- [ ] Payment processing functional
+- [ ] Real-time messaging working
+- [ ] Mobile responsiveness tested
+- [ ] Performance optimized
+- [ ] Security measures in place
+- [ ] Error handling implemented
+- [ ] User experience polished
+
+**Congratulations!** Your e-commerce platform is now ready for production with all AI-powered features working perfectly! 🚀 

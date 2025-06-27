@@ -265,6 +265,32 @@ class ApiService {
     });
   }
 
+  // AI Recommendation APIs
+  async getRecommendations(userId = null, limit = 8) {
+    const params = new URLSearchParams();
+    if (userId) params.append('userId', userId);
+    if (limit) params.append('limit', limit);
+    return this.request(`/products/recommendations?${params}`);
+  }
+
+  async getPersonalizedRecommendations(limit = 8) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit);
+    return this.request(`/products/recommendations/personalized?${params}`);
+  }
+
+  async getTrendingProducts(limit = 8) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit);
+    return this.request(`/products/trending?${params}`);
+  }
+
+  async getSimilarProducts(productId, limit = 4) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit);
+    return this.request(`/products/${productId}/similar?${params}`);
+  }
+
   async googleSignup(googleData) {
     return this.request('/auth/google', {
       method: 'POST',

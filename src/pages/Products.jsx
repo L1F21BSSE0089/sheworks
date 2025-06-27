@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import apiService from "../services/api";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { useWishlist } from "../context/WishlistContext";
 import Spinner from "../components/Spinner";
 import HeartIcon from "../components/HeartIcon";
-import { useWishlist } from "../context/WishlistContext";
 
 const CATEGORY_OPTIONS = [
   { value: "rings", label: "Rings" },
@@ -17,6 +17,7 @@ const CATEGORY_OPTIONS = [
   { value: "scarves", label: "Scarves" },
   { value: "other", label: "Other" },
 ];
+
 const SORT_OPTIONS = [
   { value: "", label: "Relevance" },
   { value: "price-asc", label: "Price: Low to High" },
@@ -26,123 +27,74 @@ const SORT_OPTIONS = [
   { value: "bestselling", label: "Best Selling" },
 ];
 
-function filterProducts(products, filters) {
-  if (!products || products.length === 0) return [];
-  
-  return products.filter(p => {
-    // Search - only run if search term exists
-    if (filters.search) {
-      const searchTerm = filters.search.toLowerCase();
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm) ||
-        (p.description && p.description.toLowerCase().includes(searchTerm)) ||
-        (p.tags && p.tags.some(tag => tag.toLowerCase().includes(searchTerm)));
-      if (!matchesSearch) return false;
-    }
-    
-    // Categories - only run if categories are selected
-    if (filters.categories.length > 0 && !filters.categories.includes(p.category)) {
-      return false;
-    }
-    
-    // Price - only run if price range is set
-    if (filters.price[0] > 0 || filters.price[1] > 0) {
-      const price = p.price?.current || 0;
-      if ((filters.price[0] > 0 && price < filters.price[0]) || 
-          (filters.price[1] > 0 && price > filters.price[1])) {
-        return false;
-      }
-    }
-    
-    // Rating - only run if rating filter is set
-    if (filters.rating > 0 && (p.rating?.average || 0) < filters.rating) {
-      return false;
-    }
-    
-    // Discount - only run if discount filter is set
-    if (filters.discount > 0 && (!p.discount || p.discount.percentage < filters.discount)) {
-      return false;
-    }
-    
-    // Tags - only run if tags are selected
-    if (filters.tags.length > 0 && (!p.tags || !filters.tags.every(tag => p.tags.includes(tag)))) {
-      return false;
-    }
-    
-    return true;
-  });
-}
-
-function sortProducts(products, sort) {
-  if (!products || products.length === 0) return [];
-  if (!sort) return products;
-  
-  const arr = [...products];
-  switch (sort) {
-    case "price-asc":
-      return arr.sort((a, b) => (a.price?.current || 0) - (b.price?.current || 0));
-    case "price-desc":
-      return arr.sort((a, b) => (b.price?.current || 0) - (a.price?.current || 0));
-    case "rating-desc":
-      return arr.sort((a, b) => (b.rating?.average || 0) - (a.rating?.average || 0));
-    case "newest":
-      return arr.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    case "bestselling":
-      return arr.sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0));
-    default:
-      return arr;
-  }
-}
-
-export default function Home({ showToast }) {
+export default function Products({ showToast }) {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [trendingProducts, setTrendingProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, pages: 0 });
-  const [hasMore, setHasMore] = useState(true);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
   const { addToCart } = useCart();
+  const { wishlist, addToWishlist, removeFromWishlist, loading: wishlistLoading } = useWishlist();
+  
+  // Filter states
   const [filters, setFilters] = useState({
-    search: "",
-    categories: [],
-    price: [0, 0],
-    rating: 0,
-    discount: 0,
-    tags: [],
+    search: searchParams.get('search') || "",
+    categories: searchParams.get('categories')?.split(',') || [],
+    price: [Number(searchParams.get('minPrice')) || 0, Number(searchParams.get('maxPrice')) || 0],
+    rating: Number(searchParams.get('rating')) || 0,
+    discount: Number(searchParams.get('discount')) || 0,
+    tags: searchParams.get('tags')?.split(',') || [],
   });
-  const [sort, setSort] = useState("");
+  
+  const [sort, setSort] = useState(searchParams.get('sort') || "");
   const [showFilters, setShowFilters] = useState(false);
   const [allTags, setAllTags] = useState([]);
   const [priceRange, setPriceRange] = useState([0, 0]);
-  const { wishlist, addToWishlist, removeFromWishlist, loading: wishlistLoading } = useWishlist();
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
 
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(filters.search);
     }, 300);
-
     return () => clearTimeout(timer);
   }, [filters.search]);
 
-  // Use debounced search for filtering
-  const effectiveFilters = useMemo(() => ({
-    ...filters,
-    search: debouncedSearch
-  }), [filters, debouncedSearch]);
+  // Update URL params when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filters.search) params.set('search', filters.search);
+    if (filters.categories.length > 0) params.set('categories', filters.categories.join(','));
+    if (filters.price[0] > 0) params.set('minPrice', filters.price[0].toString());
+    if (filters.price[1] > 0) params.set('maxPrice', filters.price[1].toString());
+    if (filters.rating > 0) params.set('rating', filters.rating.toString());
+    if (filters.discount > 0) params.set('discount', filters.discount.toString());
+    if (filters.tags.length > 0) params.set('tags', filters.tags.join(','));
+    if (sort) params.set('sort', sort);
+    if (pagination.page > 1) params.set('page', pagination.page.toString());
+    
+    setSearchParams(params);
+  }, [filters, sort, pagination.page, setSearchParams]);
 
-  // Load main products
+  // Load products
   useEffect(() => {
     const loadProducts = async () => {
       try {
         setLoading(true);
-        const res = await apiService.getProducts();
-        console.log('Products loaded:', res.products?.length || 0);
+        const params = new URLSearchParams();
         
-        // Handle different response structures
+        // Add pagination
+        params.append('page', pagination.page.toString());
+        params.append('limit', pagination.limit.toString());
+        
+        // Add filters
+        if (debouncedSearch) params.append('search', debouncedSearch);
+        if (filters.categories.length > 0) params.append('category', filters.categories.join(','));
+        if (sort) params.append('sort', sort);
+        
+        const res = await apiService.request(`/products?${params}`);
+        
         let productsArray = [];
         if (Array.isArray(res)) {
           productsArray = res;
@@ -158,8 +110,13 @@ export default function Home({ showToast }) {
         
         setProducts(productsArray);
         
-        // Only calculate tags and price range if we have products
-        if (productsArray.length > 0) {
+        // Update pagination
+        if (res.pagination) {
+          setPagination(res.pagination);
+        }
+        
+        // Calculate tags and price range on first load
+        if (productsArray.length > 0 && allTags.length === 0) {
           const tags = new Set();
           let minPrice = Infinity, maxPrice = 0;
           
@@ -171,8 +128,11 @@ export default function Home({ showToast }) {
           
           setAllTags(Array.from(tags));
           setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
-          setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
+          if (filters.price[0] === 0 && filters.price[1] === 0) {
+            setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
+          }
         }
+        
       } catch (err) {
         console.error('Error loading products:', err);
         setError(err.message);
@@ -182,53 +142,38 @@ export default function Home({ showToast }) {
     };
 
     loadProducts();
-  }, []);
+  }, [debouncedSearch, filters.categories, sort, pagination.page, pagination.limit]);
 
-  // Load AI recommendations
-  useEffect(() => {
-    const loadRecommendations = async () => {
-      try {
-        setRecommendationsLoading(true);
-        
-        // Load personalized recommendations if user is logged in
-        if (user && user._id) {
-          const personalizedRes = await apiService.getPersonalizedRecommendations(8);
-          setRecommendations(personalizedRes.products || []);
-        } else {
-          // Load general recommendations for non-logged in users
-          const generalRes = await apiService.getRecommendations(null, 8);
-          setRecommendations(generalRes.products || []);
-        }
-        
-        // Load trending products
-        const trendingRes = await apiService.getTrendingProducts(8);
-        setTrendingProducts(trendingRes.products || []);
-        
-      } catch (err) {
-        console.error('Error loading recommendations:', err);
-        // Don't set error for recommendations, just log it
-      } finally {
-        setRecommendationsLoading(false);
-      }
-    };
-
-    loadRecommendations();
-  }, [user]);
-
-  const loadMore = useCallback(() => {
-    // Simplified for now - just show all products
-    console.log('Load more clicked');
-  }, []);
-
-  const resetPagination = useCallback(() => {
-    // Simplified for now
-    console.log('Reset pagination');
-  }, []);
-
-  // Reset pagination when filters change
-  useEffect(() => {
-    // Simplified for now
-  }, [debouncedSearch, sort, filters.categories, resetPagination]);
+  // Filtered products
+  const filtered = useMemo(() => {
+    if (!products.length) return [];
+    
+    let result = products;
+    
+    // Apply client-side filters
+    if (filters.tags.length > 0) {
+      result = result.filter(p => 
+        p.tags?.some(tag => filters.tags.includes(tag))
+      );
+    }
+    
+    if (filters.rating > 0) {
+      result = result.filter(p => (p.rating?.average || 0) >= filters.rating);
+    }
+    
+    if (filters.discount > 0) {
+      result = result.filter(p => (p.discount?.percentage || 0) >= filters.discount);
+    }
+    
+    if (filters.price[0] > 0 || filters.price[1] > 0) {
+      result = result.filter(p => {
+        const price = p.price?.current || 0;
+        return price >= filters.price[0] && (filters.price[1] === 0 || price <= filters.price[1]);
+      });
+    }
+    
+    return result;
+  }, [products, filters]);
 
   const handleAddToCart = useCallback((product, qty) => {
     addToCart(product, qty);
@@ -266,75 +211,26 @@ export default function Home({ showToast }) {
     }
   }, [isInWishlist, removeFromWishlist, addToWishlist, showToast]);
 
-  // Filtered and sorted products - ultra optimized with useMemo
-  const filtered = useMemo(() => {
-    if (!products.length) return [];
-    
-    let result = products;
-    
-    // Apply filters efficiently
-    if (effectiveFilters.search) {
-      const searchLower = effectiveFilters.search.toLowerCase();
-      result = result.filter(p => 
-        p.name?.toLowerCase().includes(searchLower) ||
-        p.description?.toLowerCase().includes(searchLower) ||
-        p.category?.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    if (effectiveFilters.categories.length > 0) {
-      result = result.filter(p => effectiveFilters.categories.includes(p.category));
-    }
-    
-    if (effectiveFilters.tags.length > 0) {
-      result = result.filter(p => 
-        p.tags?.some(tag => effectiveFilters.tags.includes(tag))
-      );
-    }
-    
-    if (effectiveFilters.rating > 0) {
-      result = result.filter(p => (p.rating?.average || 0) >= effectiveFilters.rating);
-    }
-    
-    if (effectiveFilters.discount > 0) {
-      result = result.filter(p => (p.discount?.percentage || 0) >= effectiveFilters.discount);
-    }
-    
-    if (effectiveFilters.price[0] > 0 || effectiveFilters.price[1] < Infinity) {
-      result = result.filter(p => {
-        const price = p.price?.current || 0;
-        return price >= effectiveFilters.price[0] && price <= effectiveFilters.price[1];
-      });
-    }
-    
-    // Apply sorting
-    if (sort) {
-      result = [...result].sort((a, b) => {
-        switch (sort) {
-          case 'price-asc':
-            return (a.price?.current || 0) - (b.price?.current || 0);
-          case 'price-desc':
-            return (b.price?.current || 0) - (a.price?.current || 0);
-          case 'rating-desc':
-            return (b.rating?.average || 0) - (a.rating?.average || 0);
-          case 'newest':
-            return new Date(b.createdAt) - new Date(a.createdAt);
-          default:
-            return 0;
-        }
-      });
-    }
-    
-    return result;
-  }, [products, effectiveFilters, sort]);
-
   // UI Handlers
   const handleCategoryChange = (cat) => {
-    setFilters(f => ({ ...f, categories: f.categories.includes(cat) ? f.categories.filter(c => c !== cat) : [...f.categories, cat] }));
+    setFilters(f => ({ 
+      ...f, 
+      categories: f.categories.includes(cat) 
+        ? f.categories.filter(c => c !== cat) 
+        : [...f.categories, cat] 
+    }));
+    setPagination(p => ({ ...p, page: 1 })); // Reset to first page
   };
+
   const handleTagChange = (tag) => {
-    setFilters(f => ({ ...f, tags: f.tags.includes(tag) ? f.tags.filter(t => t !== tag) : [...f.tags, tag] }));
+    setFilters(f => ({ 
+      ...f, 
+      tags: f.tags.includes(tag) 
+        ? f.tags.filter(t => t !== tag) 
+        : [...f.tags, tag] 
+    }));
   };
+
   const handlePriceChange = (e, idx) => {
     const val = Number(e.target.value);
     setFilters(f => {
@@ -343,16 +239,25 @@ export default function Home({ showToast }) {
       return { ...f, price: newPrice };
     });
   };
+
   const handleRatingChange = (e) => {
     setFilters(f => ({ ...f, rating: Number(e.target.value) }));
   };
+
   const handleDiscountChange = (e) => {
     setFilters(f => ({ ...f, discount: Number(e.target.value) }));
   };
+
   const handleSearchChange = (e) => {
     setFilters(f => ({ ...f, search: e.target.value }));
+    setPagination(p => ({ ...p, page: 1 })); // Reset to first page
   };
-  const handleSortChange = (e) => setSort(e.target.value);
+
+  const handleSortChange = (e) => {
+    setSort(e.target.value);
+    setPagination(p => ({ ...p, page: 1 })); // Reset to first page
+  };
+
   const removeFilter = (type, value) => {
     setFilters(f => {
       if (type === "search") return { ...f, search: "" };
@@ -365,19 +270,25 @@ export default function Home({ showToast }) {
     });
   };
 
+  const loadMore = () => {
+    setPagination(p => ({ ...p, page: p.page + 1 }));
+  };
+
+  const goToPage = (page) => {
+    setPagination(p => ({ ...p, page }));
+  };
+
   // Product Card Component
-  const ProductCard = ({ product, showWishlist = true }) => (
+  const ProductCard = ({ product }) => (
     <Link to={`/products/${product._id}`} className="bg-white rounded-lg shadow p-4 w-full block hover:shadow-lg transition-shadow relative">
-      {showWishlist && (
-        <button
-          className="absolute top-2 right-2 z-10 text-primary hover:text-red-500 focus:outline-none"
-          onClick={e => handleWishlistToggle(product, e)}
-          disabled={wishlistLoading}
-          aria-label={isInWishlist(product._id) ? "Remove from wishlist" : "Add to wishlist"}
-        >
-          <HeartIcon filled={isInWishlist(product._id)} className={`w-6 h-6 ${wishlistLoading ? 'opacity-50' : ''}`} />
-        </button>
-      )}
+      <button
+        className="absolute top-2 right-2 z-10 text-primary hover:text-red-500 focus:outline-none"
+        onClick={e => handleWishlistToggle(product, e)}
+        disabled={wishlistLoading}
+        aria-label={isInWishlist(product._id) ? "Remove from wishlist" : "Add to wishlist"}
+      >
+        <HeartIcon filled={isInWishlist(product._id)} className={`w-6 h-6 ${wishlistLoading ? 'opacity-50' : ''}`} />
+      </button>
       <div className="relative">
         {product.discount && product.discount.percentage ? (
           <span className="absolute top-2 left-2 bg-primary text-white text-xs px-2 py-1 rounded">
@@ -413,7 +324,7 @@ export default function Home({ showToast }) {
     </Link>
   );
 
-  // Loading skeleton component - shows immediately
+  // Loading skeleton
   const ProductSkeleton = () => (
     <div className="bg-white rounded-lg shadow p-4 w-full animate-pulse">
       <div className="bg-gray-300 rounded h-32 w-full mb-2"></div>
@@ -424,8 +335,7 @@ export default function Home({ showToast }) {
     </div>
   );
 
-  // Show skeleton immediately while loading
-  if (loading) {
+  if (loading && products.length === 0) {
     return (
       <div className="px-4 md:px-8 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -439,24 +349,14 @@ export default function Home({ showToast }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-primary to-primary-dark text-white py-16">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-4">Welcome to SHE</h1>
-          <p className="text-xl mb-8">Discover Amazing Products with AI-Powered Recommendations</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/products" className="bg-white text-primary px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-              Shop Now
-            </Link>
-            <Link to="/about" className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary transition-colors">
-              Learn More
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
       <div className="px-4 md:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">All Products</h1>
+          <p className="text-gray-600">Discover amazing products with AI-powered recommendations</p>
+        </div>
+
+        {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
@@ -554,11 +454,16 @@ export default function Home({ showToast }) {
         {/* Active Filters */}
         <div className="flex flex-wrap gap-2 mb-4">
           {filters.search && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Search: {filters.search} <button className="ml-1" onClick={() => removeFilter("search")}>×</button></span>}
-          {filters.categories.map(cat => <span key={cat} className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">{CATEGORY_OPTIONS.find(c => c.value === cat)?.label || cat} <button className="ml-1" onClick={() => removeFilter("categories", cat)}>×</button></span>)}
-          {filters.tags.map(tag => <span key={tag} className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Tag: {tag} <button className="ml-1" onClick={() => removeFilter("tags", tag)}>×</button></span>)}
+          {filters.categories.map(cat => <span key={cat} className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">{CATEGORY_OPTIONS.find(c => c.value === cat)?.label || cat} <button className="ml-1" onClick={() => removeFilter("categories", cat)}>×</button></span>}
+          {filters.tags.map(tag => <span key={tag} className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Tag: {tag} <button className="ml-1" onClick={() => removeFilter("tags", tag)}>×</button></span>}
           {filters.rating > 0 && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Rating: {filters.rating}★ & up <button className="ml-1" onClick={() => removeFilter("rating")}>×</button></span>}
           {filters.discount > 0 && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Discount: {filters.discount}%+ <button className="ml-1" onClick={() => removeFilter("discount")}>×</button></span>}
           {(filters.price[0] !== priceRange[0] || filters.price[1] !== priceRange[1]) && <span className="bg-gray-200 px-2 py-1 rounded text-xs flex items-center">Price: ₨{filters.price[0]} - ₨{filters.price[1]} <button className="ml-1" onClick={() => removeFilter("price")}>×</button></span>}
+        </div>
+
+        {/* Results Count */}
+        <div className="mb-4 text-gray-600">
+          Showing {filtered.length} of {pagination.total || products.length} products
         </div>
 
         {/* Product Grid */}
@@ -573,73 +478,73 @@ export default function Home({ showToast }) {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filtered.length === 0 ? (
-              <div className="col-span-full text-center py-8 text-gray-400">
-                <p className="text-lg font-semibold mb-2">No products found</p>
-                <p className="text-sm">Please check back later or contact support.</p>
-              </div>
-            ) : filtered.slice(0, 8).map(product => (
-              <ProductCard key={product._id} product={product} />
-            ))}
-          </div>
-        )}
-        
-        <div className="flex justify-center mt-8">
-          <Link to="/products" className="bg-primary text-white px-8 py-2 rounded">View All Products</Link>
-        </div>
-        
-        {/* Show total count */}
-        {filtered.length > 0 && (
-          <div className="text-center mt-4 text-gray-600">
-            Showing {filtered.length} of {products.length} products
-          </div>
-        )}
-      </div>
-
-      {/* AI Recommendations Section */}
-      {recommendations.length > 0 && (
-        <div className="px-4 md:px-8 mt-12">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="bg-blue-500 w-2 h-6 rounded" />
-            <span className="text-blue-600 font-semibold">
-              {user ? "Personalized for you" : "Recommended for you"}
-            </span>
-          </div>
-          <h2 className="text-2xl font-bold mb-6">
-            {user ? "AI-Powered Personal Recommendations" : "Recommended for you"}
-          </h2>
-          {recommendationsLoading ? (
+          <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {[...Array(4)].map((_, i) => (
-                <ProductSkeleton key={i} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {recommendations.slice(0, 8).map(product => (
+              {filtered.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-gray-400">
+                  <p className="text-lg font-semibold mb-2">No products found</p>
+                  <p className="text-sm">Try adjusting your filters or search terms.</p>
+                </div>
+              ) : filtered.map(product => (
                 <ProductCard key={product._id} product={product} />
               ))}
             </div>
-          )}
-        </div>
-      )}
 
-      {/* Trending Products Section */}
-      {trendingProducts.length > 0 && (
-        <div className="px-4 md:px-8 mt-12">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="bg-green-500 w-2 h-6 rounded" />
-            <span className="text-green-600 font-semibold">Trending Now</span>
-          </div>
-          <h2 className="text-2xl font-bold mb-6">Trending Products</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {trendingProducts.slice(0, 8).map(product => (
-              <ProductCard key={product._id} product={product} />
-            ))}
-          </div>
-        </div>
-      )}
+            {/* Pagination */}
+            {pagination.pages > 1 && (
+              <div className="flex justify-center mt-8">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => goToPage(pagination.page - 1)}
+                    disabled={pagination.page <= 1}
+                    className="px-3 py-2 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Previous
+                  </button>
+                  
+                  {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                    const page = i + 1;
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => goToPage(page)}
+                        className={`px-3 py-2 border rounded ${
+                          page === pagination.page
+                            ? 'bg-primary text-white border-primary'
+                            : 'border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={() => goToPage(pagination.page + 1)}
+                    disabled={pagination.page >= pagination.pages}
+                    className="px-3 py-2 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Load More Button */}
+            {pagination.page < pagination.pages && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="bg-primary text-white px-8 py-2 rounded hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Loading...' : 'Load More Products'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
-}
+} 

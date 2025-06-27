@@ -221,48 +221,197 @@ router.delete('/:id', verifyToken, async (req, res) => {
   }
 });
 
-// Get recommended products for a user (simple: most popular)
-router.get('/recommendations', async (req, res) => {
+// AI-Powered Recommendation System
+const getAIRecommendations = async (userId = null, limit = 8) => {
   try {
-    console.log('Starting recommendations request...');
+    console.log('Starting AI recommendations for user:', userId);
     
-    // First check if we have any orders
-    const orderCount = await Order.countDocuments();
-    console.log('Order count:', orderCount);
+    let recommendations = [];
     
-    let products = [];
-    
-    if (orderCount > 0) {
-      console.log('Processing orders for recommendations...');
-      // Aggregate product order counts
-      const popular = await Order.aggregate([
-        { $unwind: "$items" },
-        { $group: { _id: "$items.product", count: { $sum: "$items.quantity" } } },
-        { $sort: { count: -1 } },
-        { $limit: 8 }
-      ]);
-      
-      console.log('Popular products from orders:', popular);
-      const ids = popular.map(p => p._id);
-      if (ids.length > 0) {
-        products = await Product.find({ _id: { $in: ids }, isActive: true }).populate('vendor', 'businessName');
-        console.log('Found products from orders:', products.length);
+    // 1. Collaborative Filtering (if user has order history)
+    if (userId) {
+      const userOrders = await Order.find({ user: userId }).populate('items.product');
+      if (userOrders.length > 0) {
+        console.log('User has order history, using collaborative filtering');
+        
+        // Get user's purchased categories
+        const userCategories = new Set();
+        userOrders.forEach(order => {
+          order.items.forEach(item => {
+            if (item.product && item.product.category) {
+              userCategories.add(item.product.category);
+            }
+          });
+        });
+        
+        // Find similar products in user's preferred categories
+        if (userCategories.size > 0) {
+          const collaborativeRecs = await Product.find({
+            category: { $in: Array.from(userCategories) },
+            isActive: true,
+            _id: { $nin: userOrders.flatMap(o => o.items.map(i => i.product._id)) }
+          })
+          .populate('vendor', 'businessName')
+          .sort({ 'rating.average': -1, 'rating.count': -1 })
+          .limit(Math.ceil(limit / 2))
+          .lean();
+          
+          recommendations.push(...collaborativeRecs);
+        }
       }
     }
     
-    // If no products from orders, get some active products
-    if (products.length === 0) {
-      console.log('Getting fallback products...');
-      products = await Product.find({ isActive: true }).populate('vendor', 'businessName').limit(8);
-      console.log('Found fallback products:', products.length);
+    // 2. Content-Based Filtering (based on product features)
+    if (recommendations.length < limit) {
+      console.log('Adding content-based recommendations');
+      
+      const contentRecs = await Product.find({
+        isActive: true,
+        isFeatured: true,
+        _id: { $nin: recommendations.map(r => r._id) }
+      })
+      .populate('vendor', 'businessName')
+      .sort({ 'rating.average': -1, 'rating.count': -1 })
+      .limit(limit - recommendations.length)
+      .lean();
+      
+      recommendations.push(...contentRecs);
     }
     
-    console.log('Sending recommendations response with', products.length, 'products');
+    // 3. Popularity-Based (trending products)
+    if (recommendations.length < limit) {
+      console.log('Adding popularity-based recommendations');
+      
+      const popularRecs = await Product.find({
+        isActive: true,
+        _id: { $nin: recommendations.map(r => r._id) }
+      })
+      .populate('vendor', 'businessName')
+      .sort({ 'rating.average': -1, 'rating.count': -1, createdAt: -1 })
+      .limit(limit - recommendations.length)
+      .lean();
+      
+      recommendations.push(...popularRecs);
+    }
+    
+    // 4. Fallback to any active products
+    if (recommendations.length === 0) {
+      console.log('Using fallback recommendations');
+      recommendations = await Product.find({ isActive: true })
+        .populate('vendor', 'businessName')
+        .limit(limit)
+        .lean();
+    }
+    
+    console.log('AI recommendations generated:', recommendations.length);
+    return recommendations;
+    
+  } catch (error) {
+    console.error('AI recommendations error:', error);
+    // Fallback to simple recommendations
+    return await Product.find({ isActive: true })
+      .populate('vendor', 'businessName')
+      .limit(limit)
+      .lean();
+  }
+};
+
+// Get recommended products for a user (AI-powered)
+router.get('/recommendations', async (req, res) => {
+  try {
+    console.log('Starting AI recommendations request...');
+    
+    const { userId } = req.query;
+    const limit = parseInt(req.query.limit) || 8;
+    
+    const products = await getAIRecommendations(userId, limit);
+    
+    console.log('Sending AI recommendations response with', products.length, 'products');
     res.json({ products });
   } catch (error) {
-    console.error('Recommendations error details:', error);
-    console.error('Error stack:', error.stack);
+    console.error('AI Recommendations error:', error);
     res.status(500).json({ error: 'Failed to fetch recommendations', details: error.message });
+  }
+});
+
+// Get personalized recommendations for logged-in user
+router.get('/recommendations/personalized', verifyToken, async (req, res) => {
+  try {
+    if (req.user.userType !== 'customer') {
+      return res.status(403).json({ error: 'Only customers can get personalized recommendations' });
+    }
+    
+    console.log('Getting personalized recommendations for user:', req.user.userId);
+    
+    const limit = parseInt(req.query.limit) || 8;
+    const products = await getAIRecommendations(req.user.userId, limit);
+    
+    res.json({ products });
+  } catch (error) {
+    console.error('Personalized recommendations error:', error);
+    res.status(500).json({ error: 'Failed to fetch personalized recommendations' });
+  }
+});
+
+// Get trending products (AI-powered)
+router.get('/trending', async (req, res) => {
+  try {
+    console.log('Getting trending products...');
+    
+    const limit = parseInt(req.query.limit) || 8;
+    
+    // Get products with high ratings and recent activity
+    const trendingProducts = await Product.find({ isActive: true })
+      .populate('vendor', 'businessName')
+      .sort({ 
+        'rating.average': -1, 
+        'rating.count': -1,
+        createdAt: -1 
+      })
+      .limit(limit)
+      .lean();
+    
+    res.json({ products: trendingProducts });
+  } catch (error) {
+    console.error('Trending products error:', error);
+    res.status(500).json({ error: 'Failed to fetch trending products' });
+  }
+});
+
+// Get similar products (AI-powered)
+router.get('/:id/similar', async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    const limit = parseInt(req.query.limit) || 4;
+    
+    // Find similar products based on category, tags, and price range
+    const similarProducts = await Product.find({
+      _id: { $ne: product._id },
+      isActive: true,
+      $or: [
+        { category: product.category },
+        { tags: { $in: product.tags || [] } },
+        { 
+          'price.current': { 
+            $gte: product.price.current * 0.7, 
+            $lte: product.price.current * 1.3 
+          } 
+        }
+      ]
+    })
+    .populate('vendor', 'businessName')
+    .sort({ 'rating.average': -1 })
+    .limit(limit)
+    .lean();
+    
+    res.json({ products: similarProducts });
+  } catch (error) {
+    console.error('Similar products error:', error);
+    res.status(500).json({ error: 'Failed to fetch similar products' });
   }
 });
 
