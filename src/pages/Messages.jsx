@@ -428,23 +428,38 @@ export default function Messages() {
     }
     
     try {
+      console.log('🔍 Starting new conversation process...');
+      console.log('📧 Selected email:', newRecipientEmail);
+      console.log('👥 All users available:', allUsers);
+      
       // Find the selected user from allUsers array
       const selectedUser = allUsers.find(user => user.email === newRecipientEmail);
       
+      console.log('✅ Selected user found:', selectedUser);
+      
       if (!selectedUser) {
+        console.error('❌ Selected user not found in allUsers array');
         setNewMessageError("Selected user not found");
         return;
       }
       
       console.log('🔍 Starting conversation with:', selectedUser);
+      console.log('🆔 User ID to send to:', selectedUser.id);
+      console.log('👤 Current user:', user);
       
-      // Send a first message to start the conversation
-      console.log('📤 Sending initial message to:', selectedUser.id);
-      await apiService.sendMessage({
+      // Prepare message data
+      const messageData = {
         recipientId: selectedUser.id,
         content: "Hi! I'd like to start a conversation.",
         language: selectedLanguage,
-      });
+      };
+      
+      console.log('📤 Message data to send:', messageData);
+      
+      // Send a first message to start the conversation
+      console.log('📤 Sending initial message to:', selectedUser.id);
+      const sendResult = await apiService.sendMessage(messageData);
+      console.log('✅ Message sent successfully:', sendResult);
       
       setShowNewMessageModal(false);
       setNewRecipientEmail("");
@@ -452,16 +467,21 @@ export default function Messages() {
       setShowUserDropdown(false);
       
       // Refresh conversations to show the new one
+      console.log('🔄 Refreshing conversations...');
       const conversationsRes = await apiService.getConversations();
+      console.log('📋 Updated conversations:', conversationsRes);
       setConversations(conversationsRes.conversations || []);
       
       // Select the new conversation if it exists
       if (conversationsRes.conversations && conversationsRes.conversations.length > 0) {
         setSelectedConversation(conversationsRes.conversations[0]);
+        console.log('✅ New conversation selected:', conversationsRes.conversations[0]);
       }
       
     } catch (err) {
       console.error('❌ Error starting conversation:', err);
+      console.error('❌ Error details:', err.message);
+      console.error('❌ Error response:', err.response);
       setNewMessageError(err.message || "Failed to start conversation. Please try again.");
     }
   };

@@ -251,17 +251,27 @@ router.post('/send', verifyToken, async (req, res) => {
     const { userId, userType } = req.user;
     const { recipientId, content, language = 'en', attachments = [] } = req.body;
 
-    // Validate recipient exists
-    let recipient;
-    if (userType === 'customer') {
+    console.log('📤 Send message request:', { userId, userType, recipientId, content });
+
+    // Validate recipient exists - check both User and Vendor collections
+    let recipient = await User.findById(recipientId);
+    let recipientType = 'customer';
+    
+    if (!recipient) {
       recipient = await Vendor.findById(recipientId);
-    } else {
-      recipient = await User.findById(recipientId);
+      recipientType = 'vendor';
     }
 
     if (!recipient) {
+      console.error('❌ Recipient not found in either collection:', recipientId);
       return res.status(404).json({ error: 'Recipient not found' });
     }
+
+    console.log('✅ Recipient found:', { 
+      id: recipient._id, 
+      type: recipientType, 
+      name: recipient.businessName || `${recipient.firstName} ${recipient.lastName}` 
+    });
 
     // Create message
     const message = new Message({
@@ -272,8 +282,8 @@ router.post('/send', verifyToken, async (req, res) => {
       },
       recipient: {
         id: recipientId,
-        model: userType === 'customer' ? 'Vendor' : 'User',
-        type: userType === 'customer' ? 'vendor' : 'customer'
+        model: recipientType === 'customer' ? 'User' : 'Vendor',
+        type: recipientType
       },
       content: {
         text: content,
@@ -283,11 +293,13 @@ router.post('/send', verifyToken, async (req, res) => {
     });
 
     await message.save();
+    console.log('✅ Message saved successfully');
 
     // Populate sender and recipient info
     await message.populate('sender.id', 'firstName lastName username businessName');
     await message.populate('recipient.id', 'firstName lastName username businessName');
 
+    console.log('✅ Message populated and ready to send');
     res.status(201).json({ message });
 
   } catch (error) {
