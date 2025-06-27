@@ -132,55 +132,70 @@ export default function Home({ showToast }) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    
-    // Optimized product loading - only fetch what we need
-    const loadProducts = async () => {
-      try {
-        const res = await apiService.getProducts();
-        console.log('=== PRODUCTS API RESPONSE ===');
-        console.log('Products loaded:', res.products?.length || 0);
-        
-        // Handle different response structures
-        let productsArray = [];
-        if (Array.isArray(res)) {
-          productsArray = res;
-        } else if (res && Array.isArray(res.products)) {
-          productsArray = res.products;
-        } else if (res && res.data && Array.isArray(res.data)) {
-          productsArray = res.data;
-        } else {
-          console.error('Unexpected response structure:', res);
-          setError('Invalid response format from server');
-          return;
-        }
-        
-        setProducts(productsArray);
-        
-        // Only calculate tags and price range if we have products
-        if (productsArray.length > 0) {
-          const tags = new Set();
-          let minPrice = Infinity, maxPrice = 0;
-          
-          productsArray.forEach(p => {
-            (p.tags || []).forEach(tag => tags.add(tag));
-            if (p.price?.current < minPrice) minPrice = p.price.current;
-            if (p.price?.current > maxPrice) maxPrice = p.price.current;
-          });
-          
-          setAllTags(Array.from(tags));
-          setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
-          setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
-        }
-      } catch (err) {
-        console.error('Error loading products:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    loadProducts();
+    // Check for cached products
+    const cached = localStorage.getItem('cachedProducts');
+    const cacheTime = localStorage.getItem('cachedProductsTime');
+    const now = Date.now();
+    if (cached && cacheTime && now - parseInt(cacheTime) < 5 * 60 * 1000) {
+      // Use cached products if cache is fresh (5 min)
+      const productsArray = JSON.parse(cached);
+      setProducts(productsArray);
+      setLoading(false);
+      // Prefetch in background
+      prefetchProducts();
+      return;
+    }
+
+    // Otherwise, fetch from API
+    fetchAndCacheProducts();
   }, []);
+
+  // Prefetch products in the background
+  const prefetchProducts = async () => {
+    try {
+      const res = await apiService.getProducts();
+      let productsArray = [];
+      if (Array.isArray(res)) productsArray = res;
+      else if (res && Array.isArray(res.products)) productsArray = res.products;
+      else if (res && res.data && Array.isArray(res.data)) productsArray = res.data;
+      else return;
+      localStorage.setItem('cachedProducts', JSON.stringify(productsArray));
+      localStorage.setItem('cachedProductsTime', Date.now().toString());
+    } catch {}
+  };
+
+  // Fetch and cache products
+  const fetchAndCacheProducts = async () => {
+    try {
+      const res = await apiService.getProducts();
+      let productsArray = [];
+      if (Array.isArray(res)) productsArray = res;
+      else if (res && Array.isArray(res.products)) productsArray = res.products;
+      else if (res && res.data && Array.isArray(res.data)) productsArray = res.data;
+      else throw new Error('Invalid response format from server');
+      setProducts(productsArray);
+      localStorage.setItem('cachedProducts', JSON.stringify(productsArray));
+      localStorage.setItem('cachedProductsTime', Date.now().toString());
+      // Only calculate tags and price range if we have products
+      if (productsArray.length > 0) {
+        const tags = new Set();
+        let minPrice = Infinity, maxPrice = 0;
+        productsArray.forEach(p => {
+          (p.tags || []).forEach(tag => tags.add(tag));
+          if (p.price?.current < minPrice) minPrice = p.price.current;
+          if (p.price?.current > maxPrice) maxPrice = p.price.current;
+        });
+        setAllTags(Array.from(tags));
+        setPriceRange([minPrice === Infinity ? 0 : minPrice, maxPrice]);
+        setFilters(f => ({ ...f, price: [minPrice === Infinity ? 0 : minPrice, maxPrice] }));
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadMore = useCallback(() => {
     // Simplified for now - just show all products
