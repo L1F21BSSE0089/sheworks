@@ -372,12 +372,14 @@ export default function Messages() {
     if (newLanguage === selectedLanguage) return;
     
     console.log('🌐 Language changed from', selectedLanguage, 'to', newLanguage);
+    console.log('🔑 DeepL API Key:', import.meta.env.VITE_DEEPL_API_KEY ? 'Available' : 'Missing');
     
     // Translate the current message if it exists
     if (newMessage.trim()) {
       try {
         console.log('🌐 Translating current message to:', newLanguage);
         const translated = await deeplTranslationService.translateText(newMessage, selectedLanguage, newLanguage);
+        console.log('✅ Current message translated:', translated);
         setNewMessage(translated);
       } catch (error) {
         console.error('❌ Translation error:', error);
@@ -392,7 +394,10 @@ export default function Messages() {
     // Translate all existing messages in the conversation
     if (messages.length > 0) {
       console.log('🌐 Translating all messages to:', newLanguage);
+      console.log('📝 Messages to translate:', messages);
       await translateAllMessages(messages, newLanguage);
+    } else {
+      console.log('📝 No messages to translate');
     }
   };
 
@@ -628,6 +633,25 @@ export default function Messages() {
                     <div className="mb-2 text-xs text-gray-600">
                       Select language for DeepL translation:
                     </div>
+                    <div className="mb-2 text-xs text-gray-400">
+                      DeepL API: {import.meta.env.VITE_DEEPL_API_KEY ? '✅ Available' : '❌ Missing'}
+                    </div>
+                    <button
+                      onClick={async () => {
+                        try {
+                          console.log('🧪 Testing translation...');
+                          const result = await deeplTranslationService.translateText('Hello world', 'en', 'es');
+                          console.log('✅ Test translation result:', result);
+                          alert(`Test translation: "Hello world" → "${result}"`);
+                        } catch (err) {
+                          console.error('❌ Test translation failed:', err);
+                          alert(`Translation test failed: ${err.message}`);
+                        }
+                      }}
+                      className="text-xs text-blue-500 hover:text-blue-700 underline mb-2"
+                    >
+                      Test Translation
+                    </button>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
                       {Object.entries(LANGUAGES).map(([code, lang]) => (
                         <button
@@ -675,6 +699,9 @@ export default function Messages() {
             <p className="text-sm text-gray-600 mb-4">
               Search for a person or shop to start chatting with.
             </p>
+            <div className="text-xs text-gray-400 mb-2">
+              DeepL API: {import.meta.env.VITE_DEEPL_API_KEY ? '✅ Available' : '❌ Missing'}
+            </div>
             <div className="space-y-3">
               <div className="relative user-dropdown-container">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
