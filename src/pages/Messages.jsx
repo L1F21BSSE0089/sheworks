@@ -186,7 +186,12 @@ export default function Messages() {
     
     apiService.getConversation(recipient.id)
       .then(res => {
+        console.log('📨 Raw API response:', res);
         console.log('📨 Messages loaded:', res.messages?.length || 0);
+        console.log('📨 First message structure:', res.messages?.[0]);
+        console.log('📨 Current user ID:', user._id);
+        console.log('📨 Current user type:', userType);
+        
         setMessages(res.messages || []);
         // Translate all messages when conversation loads
         if (res.messages && res.messages.length > 0) {
@@ -461,7 +466,20 @@ export default function Messages() {
 
   // Helper function to check if message is from current user
   const isOwnMessage = (message) => {
-    return message.sender?.id === user._id;
+    const senderId = message.sender?.id;
+    const userId = user._id;
+    const isOwn = senderId === userId;
+    
+    console.log('🔍 isOwnMessage check:', {
+      messageId: message._id,
+      senderId: senderId,
+      userId: userId,
+      isOwn: isOwn,
+      senderType: message.sender?.type,
+      userType: userType
+    });
+    
+    return isOwn;
   };
 
   // Handler for starting a new conversation
