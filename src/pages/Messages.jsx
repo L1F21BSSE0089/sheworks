@@ -721,10 +721,7 @@ export default function Messages() {
                 {showLanguageSelector && (
                   <div className="mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50">
                     <div className="mb-2 text-xs text-gray-600">
-                      Select language for DeepL translation:
-                    </div>
-                    <div className="mb-2 text-xs text-gray-400">
-                      DeepL API: {import.meta.env.VITE_DEEPL_API_KEY ? '✅ Available' : '❌ Missing'}
+                      Select language for translation:
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
                       {Object.entries(LANGUAGES).map(([code, lang]) => (
@@ -773,9 +770,6 @@ export default function Messages() {
             <p className="text-sm text-gray-600 mb-4">
               Search for a person or shop to start chatting with.
             </p>
-            <div className="text-xs text-gray-400 mb-2">
-              DeepL API: {import.meta.env.VITE_DEEPL_API_KEY ? '✅ Available' : '❌ Missing'}
-            </div>
             <div className="space-y-3">
               <div className="relative user-dropdown-container">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
