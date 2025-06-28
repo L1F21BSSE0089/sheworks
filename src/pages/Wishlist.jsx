@@ -1,143 +1,180 @@
-import { useWishlist } from "../context/WishlistContext";
-import { useLanguage } from "../context/LanguageContext";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { FaHeart, FaShoppingCart, FaStar, FaEye, FaTrash } from "react-icons/fa";
+import apiService from "../services/api";
+import { useCart } from "../context/CartContext";
+import { useWishlist } from "../context/WishlistContext";
 import Spinner from "../components/Spinner";
-import { FaTrash, FaEye } from "react-icons/fa";
 
-export default function Wishlist() {
-  const { wishlist, removeFromWishlist, loading } = useWishlist();
-  const { t, isLoadingTranslations } = useLanguage();
+export default function Wishlist({ showToast }) {
+  const { addToCart } = useCart();
+  const { wishlist, removeFromWishlist, isInWishlist, loading } = useWishlist();
+  const [wishlistProducts, setWishlistProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  useEffect(() => {
+    const loadWishlistProducts = async () => {
+      try {
+        setLoadingProducts(true);
+        const response = await apiService.getWishlist();
+        
+        // Handle different response structures
+        let products = [];
+        if (response && response.wishlist) {
+          // If wishlist contains product objects directly
+          products = response.wishlist.map(item => {
+            if (item.product && typeof item.product === 'object') {
+              return item.product;
+            }
+            return item;
+          });
+        } else if (Array.isArray(response)) {
+          products = response;
+        } else if (response && Array.isArray(response.products)) {
+          products = response.products;
+        }
+        
+        setWishlistProducts(products);
+      } catch (error) {
+        console.error('Error loading wishlist products:', error);
+        showToast("Failed to load wishlist", "error");
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    loadWishlistProducts();
+  }, [showToast]);
+
+  const handleAddToCart = async (product) => {
+    try {
+      await addToCart(product._id, 1);
+      showToast("Added to cart!", "success");
+    } catch (error) {
+      showToast("Failed to add to cart", "error");
+    }
+  };
+
+  const handleRemoveFromWishlist = async (productId) => {
+    try {
+      await removeFromWishlist(productId);
+      setWishlistProducts(prev => prev.filter(p => p._id !== productId));
+      showToast("Removed from wishlist", "success");
+    } catch (error) {
+      showToast("Failed to remove from wishlist", "error");
+    }
+  };
 
   const getProductImage = (product) => {
     if (product.images && product.images.length > 0) {
-      const image = product.images[0];
-      if (typeof image === 'string') {
-        return image;
-      } else if (image && image.url) {
-        return image.url;
-      }
+      return product.images[0].url;
     }
     
-    // Fallback based on product category or name
-    const category = product.category?.toLowerCase();
-    const name = product.name?.toLowerCase();
+    // Fallback based on category
+    const categoryImages = {
+      'rings': '/ring.png',
+      'necklaces': '/necklace.png',
+      'earrings': '/earring.png',
+      'bracelets': '/bracelet.png',
+      'watches': '/watch.png'
+    };
     
-    if (category?.includes('ring') || name?.includes('ring')) return '/ring.png';
-    if (category?.includes('necklace') || name?.includes('necklace')) return '/necklace.png';
-    if (category?.includes('earring') || name?.includes('earring')) return '/earring.png';
-    if (category?.includes('bracelet') || name?.includes('bracelet')) return '/bracelet.png';
-    if (category?.includes('watch') || name?.includes('watch')) return '/watch.png';
-    
-    return '/shop.webp'; // Default fallback
+    return categoryImages[product.category] || '/shop.webp';
   };
 
-  const getProductId = (wishlistItem) => {
-    if (typeof wishlistItem === 'string') return wishlistItem;
-    if (wishlistItem.product && typeof wishlistItem.product === 'string') return wishlistItem.product;
-    if (wishlistItem.product && wishlistItem.product._id) return wishlistItem.product._id;
-    if (wishlistItem._id) return wishlistItem._id;
-    return null;
-  };
-
-  const getProductData = (wishlistItem) => {
-    if (wishlistItem.product && typeof wishlistItem.product === 'object') {
-      return wishlistItem.product;
-    }
-    return wishlistItem;
-  };
-
-  if (loading || isLoadingTranslations) return <Spinner />;
+  if (loading || loadingProducts) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
-    <div className="px-4 md:px-8 py-8 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8 text-gray-900">{t("My Wishlist")}</h1>
-      
-      {wishlist.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-gray-400 text-xl mb-4">{t("Your wishlist is empty")}</div>
-          <Link 
-            to="/" 
-            className="inline-block bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
-          >
-            {t("Browse Products")}
-          </Link>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">My Wishlist</h1>
+          <p className="text-gray-600">
+            {wishlistProducts.length} {wishlistProducts.length === 1 ? 'item' : 'items'} in your wishlist
+          </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {wishlist.map((wishlistItem, index) => {
-            const product = getProductData(wishlistItem);
-            const productId = getProductId(wishlistItem);
-            
-            if (!product || !productId) {
-              console.warn('Invalid wishlist item:', wishlistItem);
-              return null;
-            }
 
-            return (
-              <div key={productId || index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300">
-                <div className="relative group">
+        {wishlistProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="mb-6">
+              <FaHeart className="mx-auto text-gray-300 text-6xl" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Your wishlist is empty</h2>
+            <p className="text-gray-600 mb-8">Start adding products you love to your wishlist!</p>
+            <Link
+              to="/products"
+              className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors inline-block"
+            >
+              Browse Products
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {wishlistProducts.map((product) => (
+              <div key={product._id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                <div className="relative">
                   <img
                     src={getProductImage(product)}
-                    alt={product.name || 'Product'}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                    onError={(e) => {
-                      e.target.src = '/shop.webp';
-                    }}
+                    alt={product.name}
+                    className="w-full h-48 object-cover"
                   />
-                  
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"></div>
-                  
-                  <div className="absolute bottom-3 left-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="flex space-x-2">
-                      <Link
-                        to={`/products/${productId}`}
-                        className="flex-1 bg-white text-gray-700 py-2 px-3 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center space-x-1"
-                      >
-                        <FaEye className="w-4 h-4" />
-                        <span>{t("View")}</span>
-                      </Link>
-                      <button
-                        onClick={() => removeFromWishlist(productId)}
-                        className="flex-1 bg-red-500 text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-red-600 transition-colors flex items-center justify-center space-x-1"
-                      >
-                        <FaTrash className="w-4 h-4" />
-                        <span>{t("Remove")}</span>
-                      </button>
-                    </div>
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <button
+                      onClick={() => handleRemoveFromWishlist(product._id)}
+                      className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      title="Remove from wishlist"
+                    >
+                      <FaTrash size={14} />
+                    </button>
+                    <Link
+                      to={`/products/${product._id}`}
+                      className="p-2 bg-white rounded-full text-gray-600 hover:text-primary transition-colors"
+                      title="View details"
+                    >
+                      <FaEye size={16} />
+                    </Link>
                   </div>
                 </div>
-                
-                <div className="p-5">
-                  <h3 className="font-bold text-lg mb-2 text-gray-900 line-clamp-2">
-                    {product.name || 'Product Name'}
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                    {product.description || 'No description available'}
-                  </p>
-                  
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xl font-bold text-primary">
-                        ₨{product.price?.current || product.price || 'N/A'}
-                      </span>
-                      {product.price?.original && product.price.original > product.price.current && (
-                        <span className="text-sm text-gray-500 line-through">
-                          ₨{product.price.original}
-                        </span>
-                      )}
-                    </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-gray-900 mb-2">{product.name}</h3>
+                  <div className="flex items-center gap-1 mb-2">
+                    {[...Array(5)].map((_, i) => (
+                      <FaStar
+                        key={i}
+                        className={`${
+                          i < (product.rating || 0) ? 'text-yellow-400' : 'text-gray-300'
+                        }`}
+                        size={14}
+                      />
+                    ))}
+                    <span className="text-sm text-gray-600 ml-1">
+                      ({product.reviewCount || 0})
+                    </span>
                   </div>
-                  
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>By {product.vendor?.businessName || 'Vendor'}</span>
-                    <span>{product.inventory?.stock || 0} in stock</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-primary">
+                      ₨{product.price?.current || product.price}
+                    </span>
+                    <button
+                      onClick={() => handleAddToCart(product)}
+                      className="bg-primary text-white px-3 py-1 rounded hover:bg-primary-dark transition-colors flex items-center gap-1"
+                    >
+                      <FaShoppingCart size={14} />
+                      Add
+                    </button>
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 } 

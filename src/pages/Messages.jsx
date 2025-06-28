@@ -3,7 +3,6 @@ import { FaPaperPlane, FaGlobe, FaEllipsisV, FaChevronDown, FaSpinner } from "re
 import apiService from "../services/api";
 import socketService from "../services/socket";
 import { useAuth } from "../context/AuthContext";
-import { useLanguage } from "../context/LanguageContext";
 import deeplTranslationService from "../services/deeplTranslation";
 
 // Simple languages object for fallback
@@ -28,7 +27,6 @@ const LANGUAGES = {
 
 export default function Messages() {
   const { user, userType } = useAuth();
-  const { language: userLanguage } = useLanguage();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);

@@ -3,7 +3,6 @@ import { FaHeart, FaShoppingCart, FaUser, FaComments, FaBell, FaBars, FaTimes, F
 import { useEffect, useState, useRef } from "react";
 import apiService from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { useLanguage, INTERFACE_LANGUAGES } from "../context/LanguageContext";
 import { useWishlist } from "../context/WishlistContext";
 
 const navLinks = [
@@ -18,7 +17,6 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, userType, logout } = useAuth();
   const [unread, setUnread] = useState(0);
-  const { interfaceLanguage, setInterfaceLanguage } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const { wishlist } = useWishlist();
   const menuRef = useRef(null);
@@ -148,19 +146,6 @@ export default function Navbar() {
             {userType === 'admin' && (
               <Link to="/admin-dashboard" className="nav-link" aria-label="Admin Dashboard">Admin Dashboard</Link>
             )}
-            <select
-              className="bg-gray-100 px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:bg-gray-50 transition-colors"
-              value={interfaceLanguage}
-              onChange={e => setInterfaceLanguage(e.target.value)}
-              aria-label="Select language"
-              title="Select language"
-            >
-              {Object.entries(INTERFACE_LANGUAGES).map(([code, lang]) => (
-                <option key={code} value={code}>
-                  {lang.flag} {lang.name}
-                </option>
-              ))}
-            </select>
             {user ? (
               <button
                 onClick={handleLogout}
@@ -200,202 +185,99 @@ export default function Navbar() {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {/* Fixed Header */}
-          <div className="flex items-center justify-between border-b border-gray-200 p-6 bg-white">
-            <h2 className="text-xl font-bold text-gray-800">Menu</h2>
-            <button 
-              onClick={() => setMenuOpen(false)}
-              className="text-gray-500 hover:text-gray-700 text-2xl p-1 rounded-lg hover:bg-gray-100 transition-colors"
-              aria-label="Close menu"
-            >
-              <FaTimes />
-            </button>
-          </div>
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-xl font-bold">Menu</h2>
+              <button 
+                onClick={() => setMenuOpen(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
+                aria-label="Close menu"
+              >
+                <FaTimes className="text-xl" />
+              </button>
+            </div>
 
-          {/* Scrollable Content */}
-          <div className="h-full overflow-y-auto">
-            <div className="p-6 space-y-6">
-              {/* User Info */}
-              {user && (
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold">
-                      {user.username?.charAt(0).toUpperCase() || 'U'}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-800">{user.username || 'User'}</p>
-                      <p className="text-sm text-gray-600 capitalize">{userType || 'Customer'}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Navigation Links */}
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Navigation</h3>
+            {/* Mobile Nav Links */}
+            <nav className="mb-8">
+              <ul className="space-y-4">
                 {navLinks.map(link => (
-                  <Link
-                    key={link.name}
-                    to={link.to}
-                    className={`flex items-center py-3 px-4 rounded-lg transition-colors ${
-                      location.pathname === link.to 
-                        ? "bg-primary text-white font-semibold" 
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    {link.name}
-                  </Link>
+                  <li key={link.name}>
+                    <Link
+                      to={link.to}
+                      onClick={() => setMenuOpen(false)}
+                      className={`block py-2 px-4 rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors ${location.pathname === link.to ? "bg-primary text-white" : ""}`}
+                    >
+                      {link.name}
+                    </Link>
+                  </li>
                 ))}
-              </div>
+              </ul>
+            </nav>
 
-              {/* Quick Actions */}
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Quick Actions</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Link 
-                    to="/wishlist" 
-                    className="flex flex-col items-center py-3 px-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                    onClick={() => setMenuOpen(false)}
+            {/* Mobile User Actions */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Link to="/wishlist" onClick={() => setMenuOpen(false)} className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  <FaHeart className="text-primary text-xl" />
+                  {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1">{wishlist.length}</span>}
+                </Link>
+                <Link to="/cart" onClick={() => setMenuOpen(false)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  <FaShoppingCart className="text-primary text-xl" />
+                </Link>
+                <Link to="/messages" onClick={() => setMenuOpen(false)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  <FaComments className="text-primary text-xl" />
+                </Link>
+                {user && (
+                  <button 
+                    onClick={() => { navigate("/notifications"); setMenuOpen(false); }}
+                    className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <div className="relative">
-                      <FaHeart className="text-primary text-xl mb-1" />
-                      {wishlist.length > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                          {wishlist.length}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-600">Wishlist</span>
-                  </Link>
-                  
-                  <Link 
-                    to="/cart" 
-                    className="flex flex-col items-center py-3 px-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <FaShoppingCart className="text-primary text-xl mb-1" />
-                    <span className="text-xs text-gray-600">Cart</span>
-                  </Link>
-                  
-                  <Link 
-                    to="/messages" 
-                    className="flex flex-col items-center py-3 px-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <FaComments className="text-primary text-xl mb-1" />
-                    <span className="text-xs text-gray-600">Messages</span>
-                  </Link>
-                  
-                  <Link 
-                    to="/account" 
-                    className="flex flex-col items-center py-3 px-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <FaUser className="text-primary text-xl mb-1" />
-                    <span className="text-xs text-gray-600">Account</span>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Notifications */}
-              {user && (
-                <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Notifications</h3>
-                  <button
-                    onClick={() => { setMenuOpen(false); navigate("/notifications"); }}
-                    className="flex items-center justify-between w-full py-3 px-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <FaBell className="text-primary text-xl" />
-                        {unread > 0 && (
-                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                            {unread}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-gray-700">Notifications</span>
-                    </div>
-                    {unread > 0 && (
-                      <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                        {unread} new
-                      </span>
-                    )}
+                    <FaBell className="text-primary text-xl" />
+                    {unread > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1">{unread}</span>}
                   </button>
-                </div>
-              )}
-
-              {/* Dashboard Links */}
-              {(userType === 'vendor' || userType === 'admin') && (
-                <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">Dashboard</h3>
-                  {userType === 'vendor' && (
-                    <Link 
-                      to="/vendor-dashboard" 
-                      className="flex items-center py-3 px-4 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors text-blue-700"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span className="font-medium">Vendor Dashboard</span>
-                    </Link>
-                  )}
-                  {userType === 'admin' && (
-                    <Link 
-                      to="/admin-dashboard" 
-                      className="flex items-center py-3 px-4 rounded-lg bg-purple-50 hover:bg-purple-100 transition-colors text-purple-700"
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span className="font-medium">Admin Dashboard</span>
-                    </Link>
-                  )}
-                </div>
-              )}
-
-              {/* Debug Info (remove in production) */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
-                  Debug: userType = {userType}, user = {user ? 'logged in' : 'not logged in'}
-                </div>
-              )}
-
-              {/* Language Selector */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Language</label>
-                <select
-                  className="bg-gray-100 px-4 py-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-colors"
-                  value={interfaceLanguage}
-                  onChange={e => setInterfaceLanguage(e.target.value)}
-                  aria-label="Select language"
-                >
-                  {Object.entries(INTERFACE_LANGUAGES).map(([code, lang]) => (
-                    <option key={code} value={code}>
-                      {lang.flag} {lang.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Login/Logout */}
-              <div className="pt-4 border-t border-gray-200">
-                {user ? (
-                  <button
-                    onClick={handleLogout}
-                    className="w-full bg-red-500 text-white px-4 py-3 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
-                    aria-label="Logout"
-                  >
-                    <FaSignOutAlt />
-                    <span>Logout</span>
-                  </button>
-                ) : (
-                  <Link
-                    to="/login"
-                    className="block w-full bg-primary text-white px-4 py-3 rounded-lg hover:bg-primary-dark transition-colors text-center"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Login
-                  </Link>
                 )}
+                <Link to="/account" onClick={() => setMenuOpen(false)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  <FaUser className="text-primary text-xl" />
+                </Link>
               </div>
+
+              {userType === 'vendor' && (
+                <Link 
+                  to="/vendor-dashboard" 
+                  onClick={() => setMenuOpen(false)}
+                  className="block w-full text-center bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary-dark transition-colors"
+                >
+                  Vendor Dashboard
+                </Link>
+              )}
+              
+              {userType === 'admin' && (
+                <Link 
+                  to="/admin-dashboard" 
+                  onClick={() => setMenuOpen(false)}
+                  className="block w-full text-center bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary-dark transition-colors"
+                >
+                  Admin Dashboard
+                </Link>
+              )}
+
+              {user ? (
+                <button
+                  onClick={() => { handleLogout(); setMenuOpen(false); }}
+                  className="w-full bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <FaSignOutAlt />
+                  Logout
+                </button>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="block w-full text-center bg-primary text-white py-2 px-4 rounded-lg hover:bg-primary-dark transition-colors"
+                >
+                  Login
+                </Link>
+              )}
             </div>
           </div>
         </div>

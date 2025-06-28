@@ -1,13 +1,7 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState } from "react";
 import apiService from "../services/api";
 
 const LanguageContext = createContext();
-
-// Interface languages - only English and Urdu
-export const INTERFACE_LANGUAGES = {
-  en: { name: "English", nativeName: "English", flag: "🇺🇸" },
-  ur: { name: "Urdu", nativeName: "اردو", flag: "🇵🇰" }
-};
 
 // All languages for messaging (keep multilingual)
 export const LANGUAGES = {
@@ -29,148 +23,14 @@ export const LANGUAGES = {
   nl: { name: "Dutch", nativeName: "Nederlands", flag: "🇳🇱" }
 };
 
-// Interface translations (English as base)
-const INTERFACE_TRANSLATIONS = {
-  en: {
-    "Home": "Home",
-    "Products": "Products",
-    "Cart": "Cart",
-    "Account": "Account",
-    "Login": "Login",
-    "Signup": "Signup",
-    "Logout": "Logout",
-    "Search": "Search",
-    "Add to Cart": "Add to Cart",
-    "Remove from Cart": "Remove from Cart",
-    "Checkout": "Checkout",
-    "Total": "Total",
-    "Quantity": "Quantity",
-    "Price": "Price",
-    "Description": "Description",
-    "Reviews": "Reviews",
-    "Rating": "Rating",
-    "Submit": "Submit",
-    "Cancel": "Cancel",
-    "Save": "Save",
-    "Edit": "Edit",
-    "Delete": "Delete",
-    "Create": "Create",
-    "Update": "Update",
-    "Loading": "Loading",
-    "Error": "Error",
-    "Success": "Success",
-    "Warning": "Warning",
-    "Info": "Info",
-    "Close": "Close",
-    "Back": "Back",
-    "Next": "Next",
-    "Previous": "Previous",
-    "Continue": "Continue",
-    "Finish": "Finish",
-    "Reset": "Reset",
-    "Clear": "Clear",
-    "Filter": "Filter",
-    "Sort": "Sort",
-    "View": "View",
-    "Details": "Details",
-    "Settings": "Settings",
-    "Profile": "Profile",
-    "Messages": "Messages",
-    "Notifications": "Notifications",
-    "Wishlist": "Wishlist",
-    "Orders": "Orders",
-    "Dashboard": "Dashboard",
-    "Vendor Dashboard": "Vendor Dashboard",
-    "Admin Dashboard": "Admin Dashboard",
-    "About": "About",
-    "Contact": "Contact",
-    "Privacy Policy": "Privacy Policy",
-    "Terms of Service": "Terms of Service",
-    "All rights reserved": "All rights reserved",
-    "Follow us": "Follow us",
-    "Customer Service": "Customer Service",
-    "My Wishlist": "My Wishlist",
-    "Your wishlist is empty": "Your wishlist is empty",
-    "Browse Products": "Browse Products",
-    "Remove": "Remove",
-    "Welcome to SheWorks": "Welcome to SheWorks",
-    "Discover from women entrepreneurs": "Discover from women entrepreneurs",
-    "Shop All Products": "Shop All Products",
-    "No products found": "No products found",
-    "Shop jewelry, accessories, and more!": "Shop jewelry, accessories, and more!",
-    "Clear All Filters": "Clear All Filters",
-    "Filters": "Filters",
-    "Recommended for You": "Recommended for You"
-  },
-  ur: {} // Will be populated with API translations
-};
-
 export function useLanguage() {
   return useContext(LanguageContext);
 }
 
 export function LanguageProvider({ children }) {
-  const [interfaceLanguage, setInterfaceLanguage] = useState(() => localStorage.getItem("interfaceLanguage") || "en");
-  const [interfaceTranslations, setInterfaceTranslations] = useState(INTERFACE_TRANSLATIONS);
   const [translationCache, setTranslationCache] = useState({});
-  const [isLoadingTranslations, setIsLoadingTranslations] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem("interfaceLanguage", interfaceLanguage);
-  }, [interfaceLanguage]);
-
-  // Initialize Urdu translations using API
-  useEffect(() => {
-    const initializeUrduTranslations = async () => {
-      if (interfaceTranslations.ur && Object.keys(interfaceTranslations.ur).length === 0) {
-        setIsLoadingTranslations(true);
-        const urduTranslations = {};
-        
-        try {
-          // Translate all interface texts to Urdu using the API
-          for (const [key, englishText] of Object.entries(INTERFACE_TRANSLATIONS.en)) {
-            try {
-              const translated = await apiService.translateText(englishText, 'en', 'ur', 'interface');
-              urduTranslations[key] = translated;
-              // Add small delay to avoid overwhelming the API
-              await new Promise(resolve => setTimeout(resolve, 100));
-            } catch (error) {
-              console.warn(`Failed to translate "${key}":`, error);
-              urduTranslations[key] = englishText; // Fallback to English
-            }
-          }
-          
-          setInterfaceTranslations(prev => ({
-            ...prev,
-            ur: urduTranslations
-          }));
-          
-          console.log('✅ Urdu translations loaded successfully');
-        } catch (error) {
-          console.error('❌ Failed to load Urdu translations:', error);
-        } finally {
-          setIsLoadingTranslations(false);
-        }
-      }
-    };
-
-    initializeUrduTranslations();
-  }, []);
-
-  // Interface translation function
-  const t = (key) => {
-    if (interfaceLanguage === 'en') {
-      return INTERFACE_TRANSLATIONS.en[key] || key;
-    }
-    
-    if (interfaceTranslations.ur[key]) {
-      return interfaceTranslations.ur[key];
-    }
-    
-    return INTERFACE_TRANSLATIONS.en[key] || key;
-  };
-
-  // Message translation function using API
+  // Message translation function using DeepL API
   const translateMessage = async (message, userLang) => {
     if (message.content.language === userLang) return message.content.text;
     
@@ -218,15 +78,10 @@ export function LanguageProvider({ children }) {
 
   return (
     <LanguageContext.Provider value={{ 
-      interfaceLanguage, 
-      setInterfaceLanguage, 
-      interfaceLanguages: INTERFACE_LANGUAGES,
       messageLanguages: LANGUAGES,
-      t, // Interface translation function
       translateMessage,
       translateBatch,
-      clearTranslationCache,
-      isLoadingTranslations
+      clearTranslationCache
     }}>
       {children}
     </LanguageContext.Provider>

@@ -163,42 +163,7 @@ const mapLanguageCode = (code) => {
   return languageMap[code] || 'EN';
 };
 
-// Bulk interface translation endpoint
-router.post('/translate-interface', verifyToken, rateLimitTranslations, async (req, res) => {
-  try {
-    const { texts, fromLang, toLang } = req.body;
-    
-    if (!texts || !Array.isArray(texts) || !fromLang || !toLang) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    const results = {};
-    
-    for (const text of texts) {
-      // Check cache first
-      const cachedTranslation = getCachedTranslation(text, fromLang, toLang);
-      if (cachedTranslation) {
-        results[text] = cachedTranslation;
-        continue;
-      }
-      
-      // Translate if not cached
-      const translatedText = await translateText(text, fromLang, toLang);
-      results[text] = translatedText;
-      
-      // Add delay between translations to prevent rate limiting
-      await new Promise(resolve => setTimeout(resolve, 150));
-    }
-
-    res.json({ translations: results });
-
-  } catch (error) {
-    console.error('Interface translation error:', error);
-    res.status(500).json({ error: 'Interface translation failed' });
-  }
-});
-
-// Translation endpoint
+// Translation endpoint for messages
 router.post('/translate', verifyToken, rateLimitTranslations, async (req, res) => {
   try {
     const { text, fromLang, toLang } = req.body;
