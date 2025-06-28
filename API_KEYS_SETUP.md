@@ -8,9 +8,9 @@
 - **Status**: ✅ Already configured
 
 ### 2. **Hugging Face API Key** (AI Recommendations)
-- **Get Free Key**: https://huggingface.co/settings/tokens
+- **Status**: ✅ Configured (key provided)
 - **Purpose**: AI-powered product recommendations
-- **Status**: ⚠️ Need to add
+- **Note**: Use your actual key in environment variables
 
 ### 3. **Google OAuth** (Authentication)
 - **Purpose**: Google login functionality
@@ -35,13 +35,6 @@ HUGGINGFACE_API_KEY=hf_your_key_here
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 ```
-
-### Step 2: Get Hugging Face API Key
-1. Visit: https://huggingface.co/settings/tokens
-2. Click **New token**
-3. Name: `sheworks-ai`
-4. Role: **Read**
-5. Copy the token and add to Railway
 
 ## Vercel Setup (Frontend)
 
@@ -135,14 +128,14 @@ If you need free alternatives:
 ## Status Check
 
 - ✅ **DeepL API**: Configured
-- ⚠️ **Hugging Face API**: Need to add
+- ✅ **Hugging Face API**: Configured
 - ⚠️ **Google OAuth**: Need to configure
 - ✅ **MongoDB**: Configured
 - ✅ **JWT Secret**: Configured
 
 ## Next Steps
 
-1. Get Hugging Face API key
+1. ✅ Get Hugging Face API key
 2. Add environment variables to Railway
 3. Add environment variables to Vercel
 4. Test the APIs
