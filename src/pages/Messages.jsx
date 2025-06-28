@@ -201,12 +201,16 @@ export default function Messages() {
               sender: {
                 id: msg.sender?.id,
                 type: msg.sender?.type,
-                model: msg.sender?.model
+                model: msg.sender?.model,
+                idType: typeof msg.sender?.id,
+                idValue: typeof msg.sender?.id === 'object' ? msg.sender.id._id : msg.sender?.id
               },
               recipient: {
                 id: msg.recipient?.id,
                 type: msg.recipient?.type,
-                model: msg.recipient?.model
+                model: msg.recipient?.model,
+                idType: typeof msg.recipient?.id,
+                idValue: typeof msg.recipient?.id === 'object' ? msg.recipient.id._id : msg.recipient?.id
               },
               content: msg.content,
               createdAt: msg.createdAt
@@ -488,7 +492,10 @@ export default function Messages() {
 
   // Helper function to check if message is from current user
   const isOwnMessage = (message) => {
-    const senderId = message.sender?.id;
+    // Handle both string IDs and populated objects
+    const senderId = typeof message.sender?.id === 'object' 
+      ? message.sender.id._id || message.sender.id.id 
+      : message.sender?.id;
     const userId = user._id;
     const isOwn = senderId === userId;
     
@@ -500,7 +507,8 @@ export default function Messages() {
       senderType: message.sender?.type,
       userType: userType,
       senderObject: message.sender,
-      recipientObject: message.recipient
+      recipientObject: message.recipient,
+      senderIdType: typeof message.sender?.id
     });
     
     return isOwn;
