@@ -168,7 +168,7 @@ export default function Home({ showToast }) {
 
   const handleAddToCart = async (product) => {
     try {
-      await addToCart(product._id, 1);
+      addToCart(product, 1);
       showToast("Product added to cart!", "success");
     } catch (error) {
       showToast("Failed to add to cart", "error");
@@ -494,4 +494,4 @@ export default function Home({ showToast }) {
       )}
     </div>
   );
-} 
+}

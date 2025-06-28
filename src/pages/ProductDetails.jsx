@@ -5,11 +5,13 @@ import Spinner from "../components/Spinner";
 import { useAuth } from "../context/AuthContext";
 import HeartIcon from "../components/HeartIcon";
 import { useWishlist } from "../context/WishlistContext";
+import { useCart } from "../context/CartContext";
 
 export default function ProductDetails({ showToast }) {
   const { id } = useParams();
   const { user } = useAuth();
   const { wishlist, addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const { addToCart } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -290,7 +292,15 @@ export default function ProductDetails({ showToast }) {
           <div className="mb-4 flex gap-2 flex-wrap">
             {(product.tags || []).map(tag => <span key={tag} className="bg-gray-200 px-2 py-1 rounded text-xs">{tag}</span>)}
           </div>
-          <button className="bg-primary text-white px-6 py-2 rounded mb-4">Add to Cart</button>
+          <button 
+            className="bg-primary text-white px-6 py-2 rounded mb-4 hover:bg-primary-dark transition-colors"
+            onClick={() => {
+              addToCart(product, 1);
+              if (showToast) showToast("Added to cart!", "success");
+            }}
+          >
+            Add to Cart
+          </button>
         </div>
       </div>
       {/* Reviews */}
