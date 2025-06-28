@@ -9,7 +9,7 @@ import { useWishlist } from "../context/WishlistContext";
 export default function ProductDetails({ showToast }) {
   const { id } = useParams();
   const { user } = useAuth();
-  const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
+  const { wishlist, addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,19 +22,33 @@ export default function ProductDetails({ showToast }) {
   const [loadingSimilar, setLoadingSimilar] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    apiService.request(`/products/${id}`)
-      .then(res => {
-        setProduct(res.product);
-        setLoading(false);
+    const loadProduct = async () => {
+      try {
+        setLoading(true);
+        setError(null);
         
-        // Load similar products
-        loadSimilarProducts(res.product);
-      })
-      .catch(err => {
-        setError(err.message);
+        console.log('Loading product with ID:', id);
+        const res = await apiService.getProduct(id);
+        console.log('Product response:', res);
+        
+        if (res && res.product) {
+          setProduct(res.product);
+          // Load similar products
+          loadSimilarProducts(res.product);
+        } else {
+          setError('Product not found');
+        }
+      } catch (err) {
+        console.error('Error loading product:', err);
+        setError(err.message || 'Failed to load product');
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    if (id) {
+      loadProduct();
+    }
   }, [id]);
 
   const loadSimilarProducts = async (currentProduct) => {
@@ -51,15 +65,27 @@ export default function ProductDetails({ showToast }) {
     }
   };
 
-  const isInWishlist = (productId) => wishlist.some(w => w.product && (w.product._id === productId || w.product === productId));
   const handleWishlistToggle = async (product, e) => {
     e.preventDefault();
-    if (isInWishlist(product._id)) {
-      await removeFromWishlist(product._id);
-      if (showToast) showToast("Removed from wishlist", "info");
-    } else {
-      await addToWishlist(product._id);
-      if (showToast) showToast("Added to wishlist!", "success");
+    try {
+      const currentlyInWishlist = isInWishlist(product._id);
+      const result = currentlyInWishlist 
+        ? await removeFromWishlist(product._id)
+        : await addToWishlist(product._id);
+        
+      if (result?.success) {
+        if (showToast) {
+          showToast(
+            currentlyInWishlist ? "Removed from wishlist" : "Added to wishlist!", 
+            currentlyInWishlist ? "info" : "success"
+          );
+        }
+      } else {
+        if (showToast) showToast("Failed to update wishlist", "error");
+      }
+    } catch (error) {
+      console.error('Wishlist error:', error);
+      if (showToast) showToast("Failed to update wishlist", "error");
     }
   };
 

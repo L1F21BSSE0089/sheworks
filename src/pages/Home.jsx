@@ -36,7 +36,7 @@ export default function Home({ showToast }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { addToCart } = useCart();
-  const { wishlist, addToWishlist, removeFromWishlist, loading: wishlistLoading } = useWishlist();
+  const { wishlist, addToWishlist, removeFromWishlist, isInWishlist, loading: wishlistLoading } = useWishlist();
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -51,8 +51,11 @@ export default function Home({ showToast }) {
     const loadProducts = async () => {
       try {
         setLoading(true);
+        setError(null);
+        
+        console.log('Loading products from API...');
         const res = await apiService.getProducts();
-        console.log('Products loaded:', res.products?.length || 0);
+        console.log('API Response:', res);
         
         let productsArray = [];
         if (Array.isArray(res)) {
@@ -67,11 +70,21 @@ export default function Home({ showToast }) {
           return;
         }
         
-        setProducts(productsArray);
-        setFilteredProducts(productsArray);
+        console.log('Products loaded:', productsArray.length);
+        console.log('Sample product:', productsArray[0]);
+        
+        // Filter out inactive products
+        const activeProducts = productsArray.filter(product => 
+          product.isActive !== false && product.isActive !== 'false'
+        );
+        
+        console.log('Active products:', activeProducts.length);
+        
+        setProducts(activeProducts);
+        setFilteredProducts(activeProducts);
       } catch (err) {
         console.error('Error loading products:', err);
-        setError(err.message);
+        setError(err.message || 'Failed to load products');
       } finally {
         setLoading(false);
       }
@@ -145,97 +158,133 @@ export default function Home({ showToast }) {
 
   const handleWishlistToggle = async (product) => {
     try {
-      if (wishlist.some(item => item._id === product._id)) {
-        await removeFromWishlist(product._id);
-        showToast("Removed from wishlist", "success");
+      const currentlyInWishlist = isInWishlist(product._id);
+      const result = currentlyInWishlist 
+        ? await removeFromWishlist(product._id)
+        : await addToWishlist(product._id);
+        
+      if (result?.success) {
+        showToast(
+          currentlyInWishlist ? "Removed from wishlist" : "Added to wishlist", 
+          "success"
+        );
       } else {
-        await addToWishlist(product._id);
-        showToast("Added to wishlist", "success");
+        showToast("Failed to update wishlist", "error");
       }
     } catch (error) {
+      console.error('Wishlist error:', error);
       showToast("Failed to update wishlist", "error");
     }
   };
 
-  const ProductCard = ({ product, showWishlist = true }) => (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-      <div className="relative group">
-        <img
-          src={product.images?.[0] || "/placeholder.png"}
-          alt={product.name}
-          className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"></div>
-        
-        {showWishlist && (
-          <button
-            onClick={() => handleWishlistToggle(product)}
-            disabled={wishlistLoading}
-            className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors z-10"
-          >
-            <HeartIcon
-              filled={wishlist.some(item => item._id === product._id)}
-              className="w-5 h-5"
-            />
-          </button>
-        )}
-        
-        {product.discount && (
-          <div className="absolute top-3 left-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-            -{product.discount.percentage}%
-          </div>
-        )}
-        
-        <div className="absolute bottom-3 left-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="flex space-x-2">
-            <button
-              onClick={() => handleAddToCart(product)}
-              className="flex-1 bg-primary text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors flex items-center justify-center space-x-1"
-            >
-              <FaShoppingCart className="w-4 h-4" />
-              <span>Add to Cart</span>
-            </button>
-            <Link
-              to={`/product/${product._id}`}
-              className="flex-1 bg-white text-gray-700 py-2 px-3 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center space-x-1"
-            >
-              <FaEye className="w-4 h-4" />
-              <span>View</span>
-            </Link>
-          </div>
-        </div>
-      </div>
+  const ProductCard = ({ product, showWishlist = true }) => {
+    // Handle different image formats
+    const getProductImage = (product) => {
+      if (product.images && product.images.length > 0) {
+        const image = product.images[0];
+        if (typeof image === 'string') {
+          return image;
+        } else if (image && image.url) {
+          return image.url;
+        }
+      }
       
-      <div className="p-5">
-        <h3 className="font-bold text-lg mb-2 text-gray-900 line-clamp-2">{product.name}</h3>
-        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
-        
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-2">
-            <span className="text-xl font-bold text-primary">
-              ₨{product.price?.current || product.price}
-            </span>
-            {product.price?.original && product.price.original > product.price.current && (
-              <span className="text-sm text-gray-500 line-through">
-                ₨{product.price.original}
-              </span>
-            )}
-          </div>
-          {product.rating && (
-            <div className="flex items-center text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
-              <FaStar className="text-yellow-400 w-4 h-4" />
-              <span className="ml-1 font-medium">{product.rating.average?.toFixed(1) || product.rating}</span>
+      // Fallback based on product category or name
+      const category = product.category?.toLowerCase();
+      const name = product.name?.toLowerCase();
+      
+      if (category?.includes('ring') || name?.includes('ring')) return '/ring.png';
+      if (category?.includes('necklace') || name?.includes('necklace')) return '/necklace.png';
+      if (category?.includes('earring') || name?.includes('earring')) return '/earring.png';
+      if (category?.includes('bracelet') || name?.includes('bracelet')) return '/bracelet.png';
+      if (category?.includes('watch') || name?.includes('watch')) return '/watch.png';
+      
+      return '/shop.webp'; // Default fallback
+    };
+
+    return (
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+        <div className="relative group">
+          <img
+            src={getProductImage(product)}
+            alt={product.name}
+            className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              e.target.src = '/shop.webp';
+            }}
+          />
+          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"></div>
+          
+          {showWishlist && (
+            <button
+              onClick={() => handleWishlistToggle(product)}
+              disabled={wishlistLoading}
+              className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-colors z-10"
+            >
+              <HeartIcon
+                filled={isInWishlist(product._id)}
+                className="w-5 h-5"
+              />
+            </button>
+          )}
+          
+          {product.discount && (
+            <div className="absolute top-3 left-3 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+              -{product.discount.percentage}%
             </div>
           )}
+          
+          <div className="absolute bottom-3 left-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="flex space-x-2">
+              <button
+                onClick={() => handleAddToCart(product)}
+                className="flex-1 bg-primary text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors flex items-center justify-center space-x-1"
+              >
+                <FaShoppingCart className="w-4 h-4" />
+                <span>Add to Cart</span>
+              </button>
+              <Link
+                to={`/products/${product._id}`}
+                className="flex-1 bg-white text-gray-700 py-2 px-3 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center space-x-1"
+              >
+                <FaEye className="w-4 h-4" />
+                <span>View</span>
+              </Link>
+            </div>
+          </div>
         </div>
         
-        <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>By {product.vendor?.businessName || 'Vendor'}</span>
-          <span>{product.inventory?.stock || 0} in stock</span>
+        <div className="p-5">
+          <h3 className="font-bold text-lg mb-2 text-gray-900 line-clamp-2">{product.name}</h3>
+          <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+          
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <span className="text-xl font-bold text-primary">
+                ₨{product.price?.current || product.price}
+              </span>
+              {product.price?.original && product.price.original > product.price.current && (
+                <span className="text-sm text-gray-500 line-through">
+                  ₨{product.price.original}
+                </span>
+              )}
+            </div>
+            {product.rating && (
+              <div className="flex items-center text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
+                <FaStar className="text-yellow-400 w-4 h-4" />
+                <span className="ml-1 font-medium">{product.rating.average?.toFixed(1) || product.rating}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>By {product.vendor?.businessName || 'Vendor'}</span>
+            <span>{product.inventory?.stock || 0} in stock</span>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const ProductSkeleton = () => (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden animate-pulse">

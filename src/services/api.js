@@ -202,7 +202,15 @@ class ApiService {
 
   // Product APIs
   async getProducts() {
-    return this.request('/products');
+    try {
+      console.log('API Service: Getting products...');
+      const response = await this.request('/products');
+      console.log('API Service: Products response:', response);
+      return response;
+    } catch (error) {
+      console.error('API Service: Error getting products:', error);
+      throw error;
+    }
   }
 
   async getVendorProducts() {
@@ -259,20 +267,44 @@ class ApiService {
 
   // Wishlist APIs
   async getWishlist() {
-    return this.request('/auth/users/me/wishlist');
+    try {
+      console.log('API Service: Getting wishlist...');
+      const response = await this.request('/auth/users/me/wishlist');
+      console.log('API Service: Wishlist response:', response);
+      return response;
+    } catch (error) {
+      console.error('API Service: Error getting wishlist:', error);
+      throw error;
+    }
   }
 
   async addToWishlist(productId) {
-    return this.request('/auth/users/me/wishlist', {
-      method: 'POST',
-      body: JSON.stringify({ productId }),
-    });
+    try {
+      console.log('API Service: Adding to wishlist:', productId);
+      const response = await this.request('/auth/users/me/wishlist', {
+        method: 'POST',
+        body: JSON.stringify({ productId }),
+      });
+      console.log('API Service: Add to wishlist response:', response);
+      return response;
+    } catch (error) {
+      console.error('API Service: Error adding to wishlist:', error);
+      throw error;
+    }
   }
 
   async removeFromWishlist(productId) {
-    return this.request(`/auth/users/me/wishlist/${productId}`, {
-      method: 'DELETE',
-    });
+    try {
+      console.log('API Service: Removing from wishlist:', productId);
+      const response = await this.request(`/auth/users/me/wishlist/${productId}`, {
+        method: 'DELETE',
+      });
+      console.log('API Service: Remove from wishlist response:', response);
+      return response;
+    } catch (error) {
+      console.error('API Service: Error removing from wishlist:', error);
+      throw error;
+    }
   }
 
   // AI Recommendation APIs
