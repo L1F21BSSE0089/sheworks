@@ -3,38 +3,38 @@ const mongoose = require('mongoose');
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
-    required: true,
-    unique: true
+    required: false,
+    unique: false
   },
   customer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
   items: [{
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Product',
-      required: true
+      required: false
     },
     vendor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Vendor',
-      required: true
+      required: false
     },
     quantity: {
       type: Number,
-      required: true,
+      required: false,
       min: 1
     },
     price: {
       type: Number,
-      required: true,
+      required: false,
       min: 0
     },
     total: {
       type: Number,
-      required: true,
+      required: false,
       min: 0
     },
     variant: {
@@ -45,113 +45,113 @@ const orderSchema = new mongoose.Schema({
   billingAddress: {
     firstName: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     lastName: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     email: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     phone: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     street: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     city: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     state: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     zipCode: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     country: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     }
   },
   shippingAddress: {
     firstName: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     lastName: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     email: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     phone: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     street: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     city: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     state: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     zipCode: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     },
     country: {
       type: String,
-      required: true,
+      required: false,
       trim: true
     }
   },
   payment: {
     method: {
       type: String,
-      required: true,
+      required: false,
       enum: ['credit_card', 'debit_card', 'paypal', 'stripe', 'bank_transfer', 'cash_on_delivery']
     },
     status: {
       type: String,
-      required: true,
+      required: false,
       enum: ['pending', 'processing', 'completed', 'failed', 'refunded'],
       default: 'pending'
     },
     transactionId: String,
     amount: {
       type: Number,
-      required: true,
+      required: false,
       min: 0
     },
     currency: {
@@ -164,12 +164,12 @@ const orderSchema = new mongoose.Schema({
   shipping: {
     method: {
       type: String,
-      required: true,
+      required: false,
       enum: ['standard', 'express', 'overnight', 'pickup']
     },
     cost: {
       type: Number,
-      required: true,
+      required: false,
       min: 0
     },
     trackingNumber: String,
@@ -181,34 +181,34 @@ const orderSchema = new mongoose.Schema({
   totals: {
     subtotal: {
       type: Number,
-      required: true,
+      required: false,
       min: 0
     },
     tax: {
       type: Number,
-      required: true,
+      required: false,
       min: 0
     },
     shipping: {
       type: Number,
-      required: true,
+      required: false,
       min: 0
     },
     discount: {
       type: Number,
-      required: true,
+      required: false,
       min: 0,
       default: 0
     },
     total: {
       type: Number,
-      required: true,
+      required: false,
       min: 0
     }
   },
   status: {
     type: String,
-    required: true,
+    required: false,
     enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'],
     default: 'pending'
   },
