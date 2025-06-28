@@ -10,17 +10,8 @@ const serverModule = require('../server');
 const connectedVendors = serverModule.connectedVendors || new Map();
 const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
-const braintree = require("braintree");
 
 const router = express.Router();
-
-// Comment out Braintree for now since API keys are missing
-// const gateway = new braintree.BraintreeGateway({
-//   environment: braintree.Environment.Sandbox,
-//   merchantId: process.env.BRAINTREE_MERCHANT_ID,
-//   publicKey: process.env.BRAINTREE_PUBLIC_KEY,
-//   privateKey: process.env.BRAINTREE_PRIVATE_KEY,
-// });
 
 // Mock gateway for now
 const gateway = null;
