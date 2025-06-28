@@ -167,6 +167,14 @@ export default function Checkout({ showToast }) {
 
   const handlePaymentSuccess = async (paymentResult) => {
     try {
+      console.log('=== CHECKOUT PAYMENT SUCCESS ===');
+      console.log('Payment result:', paymentResult);
+      console.log('Cart items:', cart);
+      console.log('Form data:', formData);
+      console.log('Shipping method:', shippingMethod);
+      console.log('Selected shipping:', selectedShipping);
+      console.log('Final total:', finalTotal);
+      
       // Create order
       const orderData = {
         items: cart.map(item => ({
@@ -190,7 +198,12 @@ export default function Checkout({ showToast }) {
         }
       };
 
+      console.log('Order data prepared:', orderData);
+      console.log('Submitting order to API...');
+
       const orderRes = await apiService.placeOrder(orderData);
+      console.log('Order API response:', orderRes);
+      
       setOrderId(orderRes.order._id);
       setCurrentStep(3);
       clearCart();
@@ -198,9 +211,13 @@ export default function Checkout({ showToast }) {
       if (showToast) showToast("Order placed successfully!", "success");
 
     } catch (err) {
-      console.error("Order creation error:", err);
-      setError(err.message || "Failed to create order. Please try again.");
-      if (showToast) showToast("Order creation failed", "error");
+      console.error('=== CHECKOUT ERROR ===');
+      console.error('Error details:', err);
+      console.error('Error message:', err.message);
+      console.error('Error stack:', err.stack);
+      
+      setError(err.message || 'Failed to place order');
+      if (showToast) showToast(err.message || 'Failed to place order', "error");
     }
   };
 

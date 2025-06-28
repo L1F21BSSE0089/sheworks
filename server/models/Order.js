@@ -251,22 +251,53 @@ const orderSchema = new mongoose.Schema({
 
 // Generate order number
 orderSchema.pre('save', function(next) {
-  if (!this.orderNumber) {
-    const timestamp = Date.now().toString().slice(-8);
-    const random = Math.random().toString(36).substr(2, 4).toUpperCase();
-    this.orderNumber = `SHE-${timestamp}-${random}`;
+  try {
+    console.log('=== ORDER PRE-SAVE MIDDLEWARE ===');
+    console.log('Order document:', this);
+    console.log('Current orderNumber:', this.orderNumber);
+    console.log('Is new document:', this.isNew);
+    
+    if (!this.orderNumber) {
+      const timestamp = Date.now().toString().slice(-8);
+      const random = Math.random().toString(36).substr(2, 4).toUpperCase();
+      this.orderNumber = `SHE-${timestamp}-${random}`;
+      console.log('Generated orderNumber:', this.orderNumber);
+    } else {
+      console.log('OrderNumber already exists:', this.orderNumber);
+    }
+    next();
+  } catch (error) {
+    console.error('Error in order number generation:', error);
+    next(error);
   }
-  next();
 });
 
 // Calculate totals
 orderSchema.pre('save', function(next) {
-  if (this.items && this.items.length > 0) {
-    this.totals.subtotal = this.items.reduce((sum, item) => sum + item.total, 0);
-    this.totals.tax = this.totals.subtotal * 0.1; // 10% tax
-    this.totals.total = this.totals.subtotal + this.totals.tax + this.totals.shipping - this.totals.discount;
+  try {
+    console.log('=== TOTALS CALCULATION MIDDLEWARE ===');
+    console.log('Items:', this.items);
+    
+    if (this.items && this.items.length > 0) {
+      this.totals.subtotal = this.items.reduce((sum, item) => sum + item.total, 0);
+      this.totals.tax = this.totals.subtotal * 0.1; // 10% tax
+      this.totals.total = this.totals.subtotal + this.totals.tax + this.totals.shipping - this.totals.discount;
+      
+      console.log('Calculated totals:', {
+        subtotal: this.totals.subtotal,
+        tax: this.totals.tax,
+        shipping: this.totals.shipping,
+        discount: this.totals.discount,
+        total: this.totals.total
+      });
+    } else {
+      console.log('No items to calculate totals for');
+    }
+    next();
+  } catch (error) {
+    console.error('Error in totals calculation:', error);
+    next(error);
   }
-  next();
 });
 
 // Add status to history when status changes

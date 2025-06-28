@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
+const mongoose = require('mongoose');
 
 const router = express.Router();
 
@@ -72,26 +73,121 @@ router.post('/test', verifyToken, async (req, res) => {
   }
 });
 
+// Test database connection and order creation
+router.post('/test-db', verifyToken, async (req, res) => {
+  try {
+    console.log('=== TESTING DATABASE CONNECTION ===');
+    
+    // Test database connection
+    const dbState = mongoose.connection.readyState;
+    console.log('Database connection state:', dbState);
+    
+    // Test creating a simple order
+    const testOrder = new Order({
+      customer: req.user.userId,
+      items: [{
+        product: '507f1f77bcf86cd799439011', // Test product ID
+        vendor: '507f1f77bcf86cd799439012', // Test vendor ID
+        quantity: 1,
+        price: 100,
+        total: 100
+      }],
+      billingAddress: {
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        phone: '1234567890',
+        street: '123 Test St',
+        city: 'Test City',
+        state: 'Test State',
+        zipCode: '12345',
+        country: 'Test Country'
+      },
+      shippingAddress: {
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test@example.com',
+        phone: '1234567890',
+        street: '123 Test St',
+        city: 'Test City',
+        state: 'Test State',
+        zipCode: '12345',
+        country: 'Test Country'
+      },
+      payment: {
+        method: 'credit_card',
+        status: 'pending',
+        amount: 110
+      },
+      shipping: {
+        method: 'standard',
+        cost: 0
+      },
+      totals: {
+        subtotal: 100,
+        tax: 10,
+        shipping: 0,
+        discount: 0,
+        total: 110
+      },
+      status: 'pending'
+    });
+    
+    console.log('Test order object created:', testOrder);
+    
+    const savedOrder = await testOrder.save();
+    console.log('Test order saved successfully:', savedOrder._id);
+    
+    // Clean up - delete the test order
+    await Order.findByIdAndDelete(savedOrder._id);
+    console.log('Test order cleaned up');
+    
+    res.json({
+      message: 'Database test successful',
+      databaseState: dbState,
+      testOrderId: savedOrder._id,
+      orderNumber: savedOrder.orderNumber,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Database test error:', err);
+    res.status(500).json({
+      error: 'Database test failed',
+      details: err.message,
+      stack: err.stack,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Place a new order (customer)
 router.post('/', verifyToken, async (req, res) => {
   if (req.user.userType !== 'customer') return res.status(403).json({ error: 'Only customers can place orders' });
   try {
+    console.log('=== ORDER CREATION START ===');
+    console.log('User:', req.user);
+    console.log('Request body:', req.body);
+    
     const { items, billingAddress, shippingAddress, payment, shipping } = req.body;
     
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
+      console.log('Validation failed: No items in order');
       return res.status(400).json({ error: 'No items in order' });
     }
     
     if (!billingAddress || !shippingAddress) {
+      console.log('Validation failed: Missing addresses');
       return res.status(400).json({ error: 'Billing and shipping addresses are required' });
     }
     
     if (!payment) {
+      console.log('Validation failed: No payment info');
       return res.status(400).json({ error: 'Payment information is required' });
     }
     
     if (!shipping) {
+      console.log('Validation failed: No shipping info');
       return res.status(400).json({ error: 'Shipping information is required' });
     }
     
@@ -99,27 +195,41 @@ router.post('/', verifyToken, async (req, res) => {
     const requiredAddressFields = ['firstName', 'lastName', 'email', 'phone', 'street', 'city', 'state', 'zipCode', 'country'];
     for (const field of requiredAddressFields) {
       if (!billingAddress[field]) {
+        console.log(`Validation failed: Missing billing address field: ${field}`);
         return res.status(400).json({ error: `Billing address ${field} is required` });
       }
       if (!shippingAddress[field]) {
+        console.log(`Validation failed: Missing shipping address field: ${field}`);
         return res.status(400).json({ error: `Shipping address ${field} is required` });
       }
     }
     
+    console.log('Validation passed, processing items...');
+    
     // Calculate totals
     let subtotal = 0;
     for (const item of items) {
+      console.log('Processing item:', item);
       const product = await Product.findById(item.product);
-      if (!product) return res.status(404).json({ error: 'Product not found' });
-      if (product.inventory.stock < item.quantity) return res.status(400).json({ error: 'Insufficient stock' });
+      if (!product) {
+        console.log('Product not found:', item.product);
+        return res.status(404).json({ error: 'Product not found' });
+      }
+      if (product.inventory.stock < item.quantity) {
+        console.log('Insufficient stock for product:', product._id);
+        return res.status(400).json({ error: 'Insufficient stock' });
+      }
       subtotal += product.price.current * item.quantity;
       // Reduce stock
       product.inventory.stock -= item.quantity;
       await product.save();
+      console.log('Product stock updated:', product._id, 'New stock:', product.inventory.stock);
     }
     
     const tax = subtotal * 0.1;
     const total = subtotal + tax + (shipping?.cost || 0) - (payment?.discount || 0);
+    
+    console.log('Totals calculated:', { subtotal, tax, total });
     
     // Map payment method to valid enum values
     let paymentMethod = payment?.method;
@@ -141,7 +251,9 @@ router.post('/', verifyToken, async (req, res) => {
       shippingMethod = 'standard';
     }
     
-    const order = new Order({
+    console.log('Creating order object...');
+    
+    const orderData = {
       customer: req.user.userId,
       items,
       billingAddress,
@@ -166,14 +278,23 @@ router.post('/', verifyToken, async (req, res) => {
       },
       status: 'pending',
       statusHistory: [{ status: 'pending', timestamp: new Date() }]
-    });
+    };
     
+    console.log('Order data prepared:', orderData);
+    
+    const order = new Order(orderData);
+    console.log('Order instance created:', order);
+    
+    console.log('Saving order to database...');
     await order.save();
+    console.log('Order saved successfully! Order ID:', order._id);
+    console.log('Order number generated:', order.orderNumber);
     
     // Send order confirmation email
     try {
       const user = await User.findById(req.user.userId);
       if (user && user.email) {
+        console.log('Sending order confirmation email to:', user.email);
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
           port: process.env.SMTP_PORT,
@@ -197,14 +318,41 @@ router.post('/', verifyToken, async (req, res) => {
             <p>${shippingAddress?.street || ''}, ${shippingAddress?.city || ''}, ${shippingAddress?.state || ''}, ${shippingAddress?.zipCode || ''}, ${shippingAddress?.country || ''}</p>
             <p>Order ID: ${order._id}</p>`
         });
+        console.log('Order confirmation email sent successfully');
       }
     } catch (emailErr) {
       console.error('Order confirmation email failed:', emailErr);
     }
     
+    console.log('=== ORDER CREATION SUCCESS ===');
+    console.log('Returning order response:', { order });
+    
     res.status(201).json({ order });
   } catch (err) {
-    console.error('Order creation error:', err);
+    console.error('=== ORDER CREATION ERROR ===');
+    console.error('Error details:', err);
+    console.error('Error message:', err.message);
+    console.error('Error stack:', err.stack);
+    
+    // Check if it's a MongoDB validation error
+    if (err.name === 'ValidationError') {
+      console.error('MongoDB Validation Error Details:', err.errors);
+      const validationErrors = Object.values(err.errors).map(e => e.message);
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: validationErrors 
+      });
+    }
+    
+    // Check if it's a MongoDB duplicate key error
+    if (err.code === 11000) {
+      console.error('MongoDB Duplicate Key Error:', err.keyValue);
+      return res.status(400).json({ 
+        error: 'Duplicate order number', 
+        details: 'Please try again' 
+      });
+    }
+    
     res.status(500).json({ error: err.message || 'Server error' });
   }
 });
