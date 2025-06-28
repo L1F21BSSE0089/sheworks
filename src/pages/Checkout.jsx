@@ -4,7 +4,90 @@ import { useAuth } from "../context/AuthContext";
 import apiService from "../services/api";
 import { useNavigate } from "react-router-dom";
 import { FaCreditCard, FaPaypal, FaMoneyBillWave, FaLock, FaShieldAlt, FaTruck, FaCheckCircle } from "react-icons/fa";
-import DropIn from 'braintree-web-drop-in-react';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+// Load Stripe
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+
+// Stripe Card Element Component
+function StripeCardForm({ onPaymentSuccess, amount, loading, setLoading, onError }) {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    
+    if (!stripe || !elements) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Create payment intent
+      const { clientSecret } = await apiService.request('/orders/create-payment-intent', {
+        method: 'POST',
+        body: { amount, currency: 'pkr' }
+      });
+
+      // Confirm payment
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: elements.getElement(CardElement),
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (paymentIntent.status === 'succeeded') {
+        onPaymentSuccess({
+          method: 'card',
+          status: 'paid',
+          transactionId: paymentIntent.id,
+          amount: amount
+        });
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      onError(error.message || 'Payment failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="p-4 border rounded-lg">
+        <CardElement
+          options={{
+            style: {
+              base: {
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                  color: '#aab7c4',
+                },
+              },
+              invalid: {
+                color: '#9e2146',
+              },
+            },
+          }}
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={!stripe || loading}
+        className="w-full bg-primary text-white py-3 px-4 rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {loading ? 'Processing Payment...' : `Pay ₨${amount}`}
+      </button>
+    </form>
+  );
+}
 
 export default function Checkout({ showToast }) {
   const { cart, total, clearCart } = useCart();
@@ -31,9 +114,6 @@ export default function Checkout({ showToast }) {
   const [error, setError] = useState(null);
   const [orderId, setOrderId] = useState(null);
   const [shippingMethod, setShippingMethod] = useState("standard");
-  const [braintreeInstance, setBraintreeInstance] = useState(null);
-  const [braintreeToken, setBraintreeToken] = useState(null);
-  const [tokenLoadingError, setTokenLoadingError] = useState(false);
 
   const shippingMethods = [
     { id: "standard", name: "Standard Delivery", cost: 0, time: "3-5 business days" },
@@ -50,22 +130,6 @@ export default function Checkout({ showToast }) {
     }
   }, [cart, navigate]);
 
-  useEffect(() => {
-    if (paymentMethod === 'card') {
-      setBraintreeToken(null);
-      setBraintreeInstance(null);
-      setTokenLoadingError(false);
-      setError(null);
-      apiService.request('/orders/braintree/token')
-        .then(res => setBraintreeToken(res.clientToken))
-        .catch(err => {
-          console.error('Failed to load Braintree token:', err);
-          setTokenLoadingError(true);
-          setError('Failed to load payment form. Please try again.');
-        });
-    }
-  }, [paymentMethod]);
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -81,10 +145,7 @@ export default function Checkout({ showToast }) {
                formData.phone && formData.street && formData.city && 
                formData.state && formData.zipCode;
       case 2: // Payment
-        if (paymentMethod === "card") {
-          return braintreeInstance !== null;
-        }
-        return true;
+        return true; // Stripe handles validation
       default:
         return true;
     }
@@ -104,43 +165,8 @@ export default function Checkout({ showToast }) {
     setError(null);
   };
 
-  const processPayment = async () => {
-    setLoading(true);
-    setError(null);
-
+  const handlePaymentSuccess = async (paymentResult) => {
     try {
-      let paymentResult = null;
-
-      switch (paymentMethod) {
-        case "card":
-          // Use Braintree for card payments
-            if (!braintreeInstance) throw new Error('Payment form not ready');
-            const { nonce } = await braintreeInstance.requestPaymentMethod();
-            const result = await apiService.request('/orders/braintree/checkout', {
-              method: 'POST',
-              body: { paymentMethodNonce: nonce, amount: finalTotal },
-            });
-            if (!result.success) throw new Error(result.message || 'Payment failed');
-            paymentResult = {
-              method: 'card',
-              status: 'paid',
-              transactionId: result.transaction.id,
-              amount: finalTotal
-            };
-          break;
-
-        case "cod":
-          paymentResult = {
-            method: "cash_on_delivery",
-            status: "pending",
-            amount: finalTotal
-          };
-          break;
-
-        default:
-          throw new Error("Invalid payment method");
-      }
-
       // Create order
       const orderData = {
         items: cart.map(item => ({
@@ -170,6 +196,60 @@ export default function Checkout({ showToast }) {
       clearCart();
       
       if (showToast) showToast("Order placed successfully!", "success");
+
+    } catch (err) {
+      console.error("Order creation error:", err);
+      setError(err.message || "Failed to create order. Please try again.");
+      if (showToast) showToast("Order creation failed", "error");
+    }
+  };
+
+  const processPayment = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (paymentMethod === "cod") {
+        const paymentResult = {
+          method: "cash_on_delivery",
+          status: "pending",
+          amount: finalTotal
+        };
+        
+        // Create order directly for COD
+        const orderData = {
+          items: cart.map(item => ({
+            product: item.product._id,
+            vendor: item.product.vendor,
+            quantity: item.quantity,
+            price: item.product.price.current,
+            total: item.product.price.current * item.quantity
+          })),
+          billingAddress: formData,
+          shippingAddress: formData,
+          payment: paymentResult,
+          shipping: {
+            method: shippingMethod,
+            cost: selectedShipping.cost
+          },
+          totals: {
+            subtotal: total,
+            shipping: selectedShipping.cost,
+            total: finalTotal
+          }
+        };
+
+        const orderRes = await apiService.placeOrder(orderData);
+        setOrderId(orderRes.order._id);
+        setCurrentStep(3);
+        clearCart();
+        
+        if (showToast) showToast("Order placed successfully!", "success");
+      } else {
+        // For card payments, the StripeCardForm component handles the payment
+        // and calls handlePaymentSuccess when successful
+        setError("Please use the card form above to complete payment");
+      }
 
     } catch (err) {
       console.error("Payment error:", err);
@@ -342,38 +422,19 @@ export default function Checkout({ showToast }) {
 
       {paymentMethod === "card" && (
         <div className="mt-6 p-4 border rounded-lg bg-white">
-          <div className="mb-2 font-medium">Card Details</div>
-          {tokenLoadingError ? (
-            <div className="text-center py-8">
-              <div className="text-red-600 mb-2">Failed to load payment form</div>
-              <button 
-                onClick={() => {
-                  setTokenLoadingError(false);
-                  setError(null);
-                  apiService.request('/orders/braintree/token')
-                    .then(res => setBraintreeToken(res.clientToken))
-                    .catch(err => {
-                      console.error('Failed to load Braintree token:', err);
-                      setTokenLoadingError(true);
-                      setError('Failed to load payment form. Please try again.');
-                    });
-                }}
-                className="bg-primary text-white px-4 py-2 rounded hover:bg-primary-dark"
-              >
-                Retry
-              </button>
+          <div className="mb-4">
+            <h3 className="font-medium text-lg mb-2">Card Details</h3>
+            <p className="text-sm text-gray-600">Enter your card information to complete the payment</p>
           </div>
-          ) : braintreeToken ? (
-            <DropIn
-              options={{ authorization: braintreeToken }}
-              onInstance={instance => setBraintreeInstance(instance)}
+          <Elements stripe={stripePromise}>
+            <StripeCardForm
+              onPaymentSuccess={handlePaymentSuccess}
+              amount={finalTotal}
+              loading={loading}
+              setLoading={setLoading}
+              onError={setError}
             />
-          ) : (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-2">Loading payment form...</span>
-            </div>
-          )}
+          </Elements>
         </div>
       )}
 
@@ -480,7 +541,7 @@ export default function Checkout({ showToast }) {
                     </button>
                   )}
                   
-                  {currentStep === 2 && (
+                  {currentStep === 2 && paymentMethod === "cod" && (
                     <button
                       onClick={processPayment}
                       disabled={loading || !validateStep(2)}
@@ -495,9 +556,15 @@ export default function Checkout({ showToast }) {
                           Processing...
                         </span>
                       ) : (
-                        `Pay ₨${finalTotal}`
+                        `Place Order - ₨${finalTotal}`
                       )}
                     </button>
+                  )}
+                  
+                  {currentStep === 2 && paymentMethod === "card" && (
+                    <div className="ml-auto text-sm text-gray-600">
+                      Complete payment using the card form above
+                    </div>
                   )}
                 </div>
               )}

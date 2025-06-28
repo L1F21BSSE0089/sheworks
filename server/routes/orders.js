@@ -5,9 +5,6 @@ const User = require('../models/User');
 const Vendor = require('../models/Vendor');
 const jwt = require('jsonwebtoken');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const { io } = require('../server');
-const serverModule = require('../server');
-const connectedVendors = serverModule.connectedVendors || new Map();
 const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
 
@@ -172,31 +169,6 @@ router.post('/', verifyToken, async (req, res) => {
     });
     
     await order.save();
-    
-    // Emit real-time notification to vendors
-    const vendorIds = [...new Set(items.map(i => i.vendor.toString()))];
-    vendorIds.forEach(async vendorId => {
-      const socketId = connectedVendors.get(vendorId);
-      if (socketId && io) {
-        io.to(socketId).emit('order_placed', {
-          orderId: order._id,
-          vendorId,
-          message: 'You have a new order!',
-          orderSummary: {
-            items: order.items.filter(i => i.vendor.toString() === vendorId),
-            total: order.totals.total,
-            customer: order.customer
-          }
-        });
-      }
-      // Save persistent notification
-      await Notification.create({
-        user: vendorId,
-        type: 'order',
-        message: 'You have a new order!',
-        data: { orderId: order._id }
-      });
-    });
     
     // Send order confirmation email
     try {
