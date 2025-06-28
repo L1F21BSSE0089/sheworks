@@ -82,15 +82,20 @@ const setCachedTranslation = (text, fromLang, toLang, translation) => {
 const translateText = async (text, fromLang, toLang) => {
   if (!text || fromLang === toLang) return text;
   
+  console.log('🔄 Translation request:', { text, fromLang, toLang });
+  
   // Check cache first
   const cachedTranslation = getCachedTranslation(text, fromLang, toLang);
   if (cachedTranslation) {
+    console.log('✅ Using cached translation');
     return cachedTranslation;
   }
   
   try {
     // Use DeepL API for translation
     if (process.env.DEEPL_API_KEY) {
+      console.log('🔑 DeepL API key found, attempting translation...');
+      
       // Add delay to prevent rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
       
@@ -107,35 +112,55 @@ const translateText = async (text, fromLang, toLang) => {
         })
       });
 
+      console.log('📡 DeepL response status:', deeplResponse.status);
+      
       if (deeplResponse.ok) {
         const data = await deeplResponse.json();
+        console.log('📡 DeepL response data:', data);
+        
         const translatedText = data.translations?.[0]?.text || text;
+        console.log('✅ DeepL translation successful:', translatedText);
         
         // Cache the translation
         setCachedTranslation(text, fromLang, toLang, translatedText);
         return translatedText;
+      } else {
+        const errorText = await deeplResponse.text();
+        console.error('❌ DeepL API error:', deeplResponse.status, errorText);
       }
+    } else {
+      console.log('⚠️ No DeepL API key found, using fallback');
     }
 
     // Fallback to MyMemory (free, no API key required)
+    console.log('🔄 Using MyMemory fallback translation...');
     // Add delay to prevent rate limiting
     await new Promise(resolve => setTimeout(resolve, 200));
     
     const myMemoryResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`);
     
+    console.log('📡 MyMemory response status:', myMemoryResponse.status);
+    
     if (myMemoryResponse.ok) {
       const myMemoryData = await myMemoryResponse.json();
+      console.log('📡 MyMemory response data:', myMemoryData);
+      
       const translatedText = myMemoryData.responseData?.translatedText || text;
+      console.log('✅ MyMemory translation successful:', translatedText);
       
       // Cache the translation
       setCachedTranslation(text, fromLang, toLang, translatedText);
       return translatedText;
+    } else {
+      const errorText = await myMemoryResponse.text();
+      console.error('❌ MyMemory API error:', myMemoryResponse.status, errorText);
     }
 
   } catch (error) {
-    console.error('Translation error:', error);
+    console.error('❌ Translation error:', error);
   }
   
+  console.log('⚠️ Returning original text due to translation failure');
   return text; // Return original text if translation fails
 };
 
@@ -163,6 +188,66 @@ const mapLanguageCode = (code) => {
   return languageMap[code] || 'EN';
 };
 
+// Test DeepL API configuration
+router.get('/test-deepl', verifyToken, async (req, res) => {
+  try {
+    console.log('🧪 Testing DeepL API configuration...');
+    
+    if (!process.env.DEEPL_API_KEY) {
+      return res.status(500).json({ 
+        error: 'DeepL API key not configured',
+        status: 'missing_key'
+      });
+    }
+    
+    console.log('🔑 DeepL API key found:', process.env.DEEPL_API_KEY.substring(0, 10) + '...');
+    
+    // Test with a simple translation
+    const testResponse = await fetch('https://api-free.deepl.com/v2/translate', {
+      method: 'POST',
+      headers: {
+        'Authorization': `DeepL-Auth-Key ${process.env.DEEPL_API_KEY}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        text: 'Hello world',
+        source_lang: 'EN',
+        target_lang: 'ES'
+      })
+    });
+    
+    console.log('📡 DeepL test response status:', testResponse.status);
+    
+    if (testResponse.ok) {
+      const data = await testResponse.json();
+      console.log('✅ DeepL test successful:', data);
+      res.json({ 
+        success: true, 
+        message: 'DeepL API is working correctly',
+        testTranslation: data.translations?.[0]?.text || 'No translation received',
+        status: 'working'
+      });
+    } else {
+      const errorText = await testResponse.text();
+      console.error('❌ DeepL test failed:', testResponse.status, errorText);
+      res.status(500).json({ 
+        error: 'DeepL API test failed',
+        status: testResponse.status,
+        details: errorText,
+        status: 'failed'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ DeepL test error:', error);
+    res.status(500).json({ 
+      error: 'DeepL API test error',
+      details: error.message,
+      status: 'error'
+    });
+  }
+});
+
 // Translation endpoint for messages
 router.post('/translate', verifyToken, rateLimitTranslations, async (req, res) => {
   try {
@@ -173,8 +258,11 @@ router.post('/translate', verifyToken, rateLimitTranslations, async (req, res) =
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    console.log('🔄 Translation request received:', { text, fromLang, toLang });
+
     const cachedTranslation = getCachedTranslation(text, fromLang, toLang);
     if (cachedTranslation) {
+      console.log('✅ Returning cached translation');
       return res.json({ translatedText: cachedTranslation, originalText: text, fromLang, toLang });
     }
 
