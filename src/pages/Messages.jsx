@@ -184,7 +184,7 @@ export default function Messages() {
     
     console.log('📨 Loading messages for conversation with:', recipient.id);
     
-    apiService.getConversationMessages(recipient.id)
+    apiService.getConversation(recipient.id)
       .then(res => {
         console.log('📨 Messages loaded:', res.messages?.length || 0);
         setMessages(res.messages || []);
