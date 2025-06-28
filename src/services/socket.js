@@ -14,7 +14,7 @@ class SocketService {
       this.disconnect();
     }
 
-    const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const socketUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://sheworks-production.up.railway.app';
     
     this.socket = io(socketUrl, {
       auth: {

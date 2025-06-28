@@ -2,7 +2,7 @@
 class DeepLTranslationService {
   constructor() {
     this.apiKey = import.meta.env.VITE_DEEPL_API_KEY;
-    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    this.baseUrl = import.meta.env.VITE_API_URL || 'https://sheworks-production.up.railway.app';
   }
 
   async translateText(text, fromLang, toLang) {
