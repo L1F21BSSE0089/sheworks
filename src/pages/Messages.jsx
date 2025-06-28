@@ -166,20 +166,32 @@ export default function Messages() {
     };
   }, [showUserDropdown]);
 
-  // Fetch messages when conversation changes
+  // Load messages for selected conversation
   useEffect(() => {
-    if (!selectedConversation) return;
+    if (!selectedConversation || !user) return;
+    
     setLoading(true);
+    setError(null);
+    // Clear translated messages when switching conversations
+    setTranslatedMessages({});
+    
     const recipient = selectedConversation.participants.find(p => p.id !== user._id);
-    if (!recipient) return;
+    if (!recipient) {
+      setError("Recipient not found");
+      setLoading(false);
+      return;
+    }
     
     console.log('📨 Loading messages for conversation with:', recipient.id);
-    apiService.getConversation(recipient.id)
+    
+    apiService.getConversationMessages(recipient.id)
       .then(res => {
         console.log('📨 Messages loaded:', res.messages?.length || 0);
         setMessages(res.messages || []);
         // Translate all messages when conversation loads
-        translateAllMessages(res.messages || [], selectedLanguage);
+        if (res.messages && res.messages.length > 0) {
+          translateAllMessages(res.messages, selectedLanguage);
+        }
       })
       .catch(err => {
         console.error('❌ Error loading messages:', err);
@@ -240,14 +252,15 @@ export default function Messages() {
 
   // Translate all messages when language changes
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && selectedLanguage) {
+      console.log('🌐 Language changed, translating', messages.length, 'messages to', selectedLanguage);
       translateAllMessages(messages, selectedLanguage);
     }
-  }, [selectedLanguage]);
+  }, [selectedLanguage, messages.length]);
 
   // Translate all messages using DeepL
   const translateAllMessages = async (messagesToTranslate, targetLang) => {
-    if (messagesToTranslate.length === 0) return;
+    if (messagesToTranslate.length === 0 || !targetLang) return;
     
     console.log('🌐 Starting translation of', messagesToTranslate.length, 'messages to', targetLang);
     console.log('🌐 DeepL API Key available:', !!import.meta.env.VITE_DEEPL_API_KEY);
@@ -391,6 +404,9 @@ export default function Messages() {
     setSelectedLanguage(newLanguage);
     setShowLanguageSelector(false);
     
+    // Clear existing translations and retranslate all messages
+    setTranslatedMessages({});
+    
     // Translate all existing messages in the conversation
     if (messages.length > 0) {
       console.log('🌐 Translating all messages to:', newLanguage);
@@ -420,7 +436,10 @@ export default function Messages() {
       originalLang,
       selectedLanguage,
       hasTranslation: !!translatedMessages[messageId],
-      translatedText: translatedMessages[messageId]?.substring(0, 30) + '...'
+      translatedText: translatedMessages[messageId]?.substring(0, 30) + '...',
+      senderId: message.sender?.id,
+      userId: user._id,
+      isOwnMessage: message.sender?.id === user._id
     });
     
     // If we have a translated version, show it
@@ -438,6 +457,11 @@ export default function Messages() {
     // Otherwise show original (will be translated later)
     console.log('📄 Showing original message (will be translated)');
     return originalText;
+  };
+
+  // Helper function to check if message is from current user
+  const isOwnMessage = (message) => {
+    return message.sender?.id === user._id;
   };
 
   // Handler for starting a new conversation
@@ -585,29 +609,32 @@ export default function Messages() {
                         <span>Translating messages...</span>
                       </div>
                     )}
-                    {messages.map((message, idx) => (
-                      <div
-                        key={message._id || idx}
-                        className={`flex ${message.sender.id === user._id ? "justify-end" : "justify-start"}`}
-                      >
-                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          message.sender.id === user._id
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-200 text-gray-800"
-                        }`}>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="text-xs opacity-75">{getLanguageFlag(message.content.language)}</span>
-                            <span className="text-xs opacity-75">{getLanguageName(message.content.language)}</span>
-                          </div>
-                          <p className="text-sm">{getDisplayMessage(message)}</p>
-                          <p className={`text-xs mt-1 ${
-                            message.sender.id === user._id ? "text-blue-100" : "text-gray-500"
+                    {messages.map((message, idx) => {
+                      const ownMessage = isOwnMessage(message);
+                      return (
+                        <div
+                          key={message._id || idx}
+                          className={`flex ${ownMessage ? "justify-end" : "justify-start"}`}
+                        >
+                          <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                            ownMessage
+                              ? "bg-blue-500 text-white"
+                              : "bg-gray-200 text-gray-800"
                           }`}>
-                            {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
-                          </p>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <span className="text-xs opacity-75">{getLanguageFlag(message.content.language)}</span>
+                              <span className="text-xs opacity-75">{getLanguageName(message.content.language)}</span>
+                            </div>
+                            <p className="text-sm">{getDisplayMessage(message)}</p>
+                            <p className={`text-xs mt-1 ${
+                              ownMessage ? "text-blue-100" : "text-gray-500"
+                            }`}>
+                              {message.createdAt ? new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </>
                 )}
                 <div ref={messagesEndRef} />
