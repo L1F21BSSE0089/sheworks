@@ -129,11 +129,6 @@ export default function Navbar() {
           
           {/* Desktop User Actions */}
           <div className="flex items-center gap-4">
-            <input
-              className="bg-gray-100 px-3 py-1 rounded focus:outline-primary"
-              placeholder="What are you looking for?"
-              aria-label="Search products"
-            />
             <Link to="/wishlist" aria-label="Wishlist" className="relative">
               <FaHeart className="text-primary text-xl cursor-pointer" />
               {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1">{wishlist.length}</span>}
@@ -233,16 +228,6 @@ export default function Navbar() {
                   </div>
                 </div>
               )}
-
-              {/* Mobile Search */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Search Products</label>
-                <input
-                  className="bg-gray-100 px-4 py-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-colors"
-                  placeholder="What are you looking for?"
-                  aria-label="Search products"
-                />
-              </div>
 
               {/* Navigation Links */}
               <div className="space-y-1">
