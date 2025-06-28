@@ -192,6 +192,28 @@ export default function Messages() {
         console.log('📨 Current user ID:', user._id);
         console.log('📨 Current user type:', userType);
         
+        // Log each message structure in detail
+        if (res.messages && res.messages.length > 0) {
+          console.log('📨 All messages structure:');
+          res.messages.forEach((msg, index) => {
+            console.log(`📨 Message ${index + 1}:`, {
+              id: msg._id,
+              sender: {
+                id: msg.sender?.id,
+                type: msg.sender?.type,
+                model: msg.sender?.model
+              },
+              recipient: {
+                id: msg.recipient?.id,
+                type: msg.recipient?.type,
+                model: msg.recipient?.model
+              },
+              content: msg.content,
+              createdAt: msg.createdAt
+            });
+          });
+        }
+        
         setMessages(res.messages || []);
         // Translate all messages when conversation loads
         if (res.messages && res.messages.length > 0) {
@@ -476,7 +498,9 @@ export default function Messages() {
       userId: userId,
       isOwn: isOwn,
       senderType: message.sender?.type,
-      userType: userType
+      userType: userType,
+      senderObject: message.sender,
+      recipientObject: message.recipient
     });
     
     return isOwn;
