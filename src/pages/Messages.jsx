@@ -178,6 +178,8 @@ export default function Messages() {
     // Clear messages and translated messages when switching conversations
     setMessages([]);
     setTranslatedMessages({});
+    // Clear typing indicators when switching conversations
+    setTypingUsers(new Set());
     
     const recipient = selectedConversation.participants.find(p => p.id !== user._id);
     if (!recipient) {
@@ -245,7 +247,8 @@ export default function Messages() {
         recipientId: message.recipient?.id,
         userId: user._id,
         currentConversationParticipants: selectedConversation?.participants?.map(p => p.id),
-        messageConversationId: message.conversationId
+        messageConversationId: message.conversationId,
+        currentConversationId: selectedConversation?.conversationId
       });
       
       // Check if message belongs to current conversation
@@ -261,10 +264,14 @@ export default function Messages() {
         const conversationIdMatches = !message.conversationId || 
                                     message.conversationId === selectedConversation.conversationId;
         
+        // Additional check: verify the message involves the current user
+        const involvesCurrentUser = message.sender?.id === user._id || message.recipient?.id === user._id;
+        
         console.log('📨 Message belongs to current conversation:', belongsToCurrentConversation);
         console.log('📨 Conversation ID matches:', conversationIdMatches);
+        console.log('📨 Involves current user:', involvesCurrentUser);
         
-        if (belongsToCurrentConversation && conversationIdMatches) {
+        if (belongsToCurrentConversation && conversationIdMatches && involvesCurrentUser) {
           setMessages((prev) => {
             // Check if message already exists
             const exists = prev.some(m => m._id === message._id);
@@ -282,7 +289,8 @@ export default function Messages() {
         } else {
           console.log('📨 Message does not belong to current conversation, ignoring');
           console.log('📨 Reason: belongsToCurrentConversation =', belongsToCurrentConversation, 
-                     'conversationIdMatches =', conversationIdMatches);
+                     'conversationIdMatches =', conversationIdMatches,
+                     'involvesCurrentUser =', involvesCurrentUser);
         }
       } else {
         console.log('📨 No selected conversation, ignoring message');

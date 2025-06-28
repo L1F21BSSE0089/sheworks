@@ -324,14 +324,72 @@ io.on('connection', (socket) => {
     const { recipientId, message, language, senderType } = data;
     
     try {
-      // Save message to database (you'll implement this)
+      console.log('📤 Socket message received:', { recipientId, message, language, senderType, senderId: socket.userId });
+      
+      // Import Message model
+      const Message = require('./models/Message');
+      const User = require('./models/User');
+      const Vendor = require('./models/Vendor');
+      
+      // Validate recipient exists
+      let recipient = await User.findById(recipientId);
+      let recipientType = 'customer';
+      
+      if (!recipient) {
+        recipient = await Vendor.findById(recipientId);
+        recipientType = 'vendor';
+      }
+
+      if (!recipient) {
+        console.error('❌ Recipient not found:', recipientId);
+        socket.emit('message_error', { error: 'Recipient not found' });
+        return;
+      }
+
+      // Create and save message to database
+      const newMessage = new Message({
+        sender: {
+          id: socket.userId,
+          model: senderType === 'customer' ? 'User' : 'Vendor',
+          type: senderType
+        },
+        recipient: {
+          id: recipientId,
+          model: recipientType === 'customer' ? 'User' : 'Vendor',
+          type: recipientType
+        },
+        content: {
+          text: message,
+          language: language || 'en'
+        }
+      });
+
+      await newMessage.save();
+      console.log('✅ Message saved to database:', newMessage._id);
+
+      // Populate sender and recipient info
+      await newMessage.populate('sender.id', 'firstName lastName username businessName');
+      await newMessage.populate('recipient.id', 'firstName lastName username businessName');
+
+      // Create the message object to send via socket
       const savedMessage = {
-        sender: socket.userId,
-        recipient: recipientId,
-        content: message,
-        language: language,
-        senderType: senderType,
-        timestamp: new Date()
+        _id: newMessage._id,
+        sender: {
+          id: newMessage.sender.id._id || newMessage.sender.id,
+          type: newMessage.sender.type,
+          name: newMessage.sender.id.businessName || `${newMessage.sender.id.firstName} ${newMessage.sender.id.lastName}`
+        },
+        recipient: {
+          id: newMessage.recipient.id._id || newMessage.recipient.id,
+          type: newMessage.recipient.type,
+          name: newMessage.recipient.id.businessName || `${newMessage.recipient.id.firstName} ${newMessage.recipient.id.lastName}`
+        },
+        content: {
+          text: newMessage.content.text,
+          language: newMessage.content.language
+        },
+        createdAt: newMessage.createdAt,
+        conversationId: newMessage.conversationId
       };
 
       // Emit to recipient if online
@@ -340,14 +398,19 @@ io.on('connection', (socket) => {
         : connectedUsers.get(recipientId);
 
       if (recipientSocketId) {
+        console.log('📡 Emitting message to recipient:', recipientSocketId);
         io.to(recipientSocketId).emit('new_message', savedMessage);
+      } else {
+        console.log('📡 Recipient not online:', recipientId);
       }
 
       // Send confirmation back to sender
       socket.emit('message_sent', savedMessage);
+      console.log('✅ Message sent successfully');
       
     } catch (error) {
-      socket.emit('message_error', { error: 'Failed to send message' });
+      console.error('❌ Socket message error:', error);
+      socket.emit('message_error', { error: 'Failed to send message', details: error.message });
     }
   });
 
