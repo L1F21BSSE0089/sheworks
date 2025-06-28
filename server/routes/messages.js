@@ -279,6 +279,35 @@ router.get('/conversation/:participantId', verifyToken, async (req, res) => {
   }
 });
 
+// Delete conversation with specific user/vendor
+router.delete('/conversation/:participantId', verifyToken, async (req, res) => {
+  try {
+    const { userId, userType } = req.user;
+    const { participantId } = req.params;
+
+    console.log('🗑️ Deleting conversation between:', userId, 'and', participantId);
+
+    // Delete all messages between these two users
+    const result = await Message.deleteMany({
+      $or: [
+        { 'sender.id': userId, 'recipient.id': participantId },
+        { 'sender.id': participantId, 'recipient.id': userId }
+      ]
+    });
+
+    console.log('✅ Deleted', result.deletedCount, 'messages');
+
+    res.json({ 
+      message: 'Conversation deleted successfully',
+      deletedCount: result.deletedCount 
+    });
+
+  } catch (error) {
+    console.error('Delete conversation error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Send a message
 router.post('/send', verifyToken, async (req, res) => {
   try {

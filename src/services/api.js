@@ -189,6 +189,12 @@ class ApiService {
     });
   }
 
+  async deleteConversation(participantId) {
+    return this.request(`/messages/conversation/${participantId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Health check
   async healthCheck() {
     return this.request('/health');

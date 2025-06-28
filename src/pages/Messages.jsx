@@ -50,6 +50,9 @@ export default function Messages() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showChatOptions, setShowChatOptions] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingChat, setDeletingChat] = useState(false);
 
   // Connect to socket on mount
   useEffect(() => {
@@ -158,13 +161,16 @@ export default function Messages() {
       if (showUserDropdown && !event.target.closest('.user-dropdown-container')) {
         setShowUserDropdown(false);
       }
+      if (showChatOptions && !event.target.closest('.chat-options-container')) {
+        setShowChatOptions(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showUserDropdown]);
+  }, [showUserDropdown, showChatOptions]);
 
   // Load messages for selected conversation
   useEffect(() => {
@@ -372,8 +378,11 @@ export default function Messages() {
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, translatedMessages]);
+    // Only scroll to bottom when new messages are added, not when switching conversations
+    if (messages.length > 0 && !loading) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages.length, loading]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation) return;
@@ -601,6 +610,38 @@ export default function Messages() {
     }
   };
 
+  // Handler for deleting a conversation
+  const handleDeleteConversation = async () => {
+    if (!selectedConversation) return;
+    
+    setDeletingChat(true);
+    try {
+      const recipient = selectedConversation.participants.find(p => p.id !== user._id);
+      if (!recipient) {
+        throw new Error("Recipient not found");
+      }
+      
+      // Delete all messages in this conversation
+      await apiService.deleteConversation(recipient.id);
+      
+      // Remove conversation from local state
+      setConversations(prev => prev.filter(conv => conv.conversationId !== selectedConversation.conversationId));
+      
+      // Clear current conversation
+      setSelectedConversation(null);
+      setMessages([]);
+      setTranslatedMessages({});
+      setShowDeleteConfirm(false);
+      setShowChatOptions(false);
+      
+    } catch (err) {
+      console.error('❌ Error deleting conversation:', err);
+      setError(err.message || "Failed to delete conversation. Please try again.");
+    } finally {
+      setDeletingChat(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto p-2 md:p-4">
@@ -677,10 +718,28 @@ export default function Messages() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <div className="flex items-center space-x-2 relative chat-options-container">
+                    <button 
+                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                      onClick={() => setShowChatOptions(!showChatOptions)}
+                    >
                       <FaEllipsisV className="text-gray-600" />
                     </button>
+                    
+                    {/* Chat Options Dropdown */}
+                    {showChatOptions && (
+                      <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[150px]">
+                        <button
+                          onClick={() => {
+                            setShowDeleteConfirm(true);
+                            setShowChatOptions(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          Delete Chat
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -950,6 +1009,41 @@ export default function Messages() {
                   Start Chat
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">Delete Conversation</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this conversation? This action cannot be undone and all messages will be permanently removed.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deletingChat}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                onClick={handleDeleteConversation}
+                disabled={deletingChat}
+              >
+                {deletingChat ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <FaSpinner className="animate-spin" />
+                    <span>Deleting...</span>
+                  </div>
+                ) : (
+                  'Delete'
+                )}
+              </button>
             </div>
           </div>
         </div>
