@@ -26,13 +26,13 @@ export default function Signup() {
     // Initialize Google OAuth
     if (window.google) {
       window.google.accounts.id.initialize({
-        client_id: "384698730754-e8dhto602di0o4trdvoelggmk61gjiqp.apps.googleusercontent.com",
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "384698730754-e8dhto602di0o4trdvoelggmk61gjiqp.apps.googleusercontent.com",
         callback: handleGoogleSignup,
       });
       
       window.google.accounts.id.renderButton(
         document.getElementById("google-signup-button"),
-        { theme: "outline", size: "large", width: "100%" }
+        { theme: "outline", size: "large" }
       );
     }
   }, []);
