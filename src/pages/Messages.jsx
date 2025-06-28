@@ -55,7 +55,6 @@ export default function Messages() {
   // Connect to socket on mount
   useEffect(() => {
     if (user && user._id && userType) {
-      console.log('🔌 Connecting to socket with:', { userId: user._id, userType });
       socketService.connect(localStorage.getItem("token"), user._id, userType);
       
       // Check connection status
@@ -80,7 +79,6 @@ export default function Messages() {
     setLoading(true);
     apiService.getConversations()
       .then(res => {
-        console.log('📋 Conversations loaded:', res.conversations?.length || 0);
         setConversations(res.conversations || []);
         if (res.conversations && res.conversations.length > 0) {
           setSelectedConversation(res.conversations[0]);
@@ -174,9 +172,6 @@ export default function Messages() {
   useEffect(() => {
     if (!selectedConversation || !user) return;
     
-    console.log('🔄 Switching to conversation:', selectedConversation.conversationId);
-    console.log('🔄 Conversation participants:', selectedConversation.participants);
-    
     setLoading(true);
     setError(null);
     // Clear messages and translated messages when switching conversations
@@ -192,42 +187,8 @@ export default function Messages() {
       return;
     }
     
-    console.log('📨 Loading messages for conversation with:', recipient.id);
-    
     apiService.getConversation(recipient.id)
       .then(res => {
-        console.log('📨 Raw API response:', res);
-        console.log('📨 Messages loaded:', res.messages?.length || 0);
-        console.log('📨 First message structure:', res.messages?.[0]);
-        console.log('📨 Current user ID:', user._id);
-        console.log('📨 Current user type:', userType);
-        
-        // Log each message structure in detail
-        if (res.messages && res.messages.length > 0) {
-          console.log('📨 All messages structure:');
-          res.messages.forEach((msg, index) => {
-            console.log(`📨 Message ${index + 1}:`, {
-              id: msg._id,
-              sender: {
-                id: msg.sender?.id,
-                type: msg.sender?.type,
-                model: msg.sender?.model,
-                idType: typeof msg.sender?.id,
-                idValue: typeof msg.sender?.id === 'object' ? msg.sender.id._id : msg.sender?.id
-              },
-              recipient: {
-                id: msg.recipient?.id,
-                type: msg.recipient?.type,
-                model: msg.recipient?.model,
-                idType: typeof msg.recipient?.id,
-                idValue: typeof msg.recipient?.id === 'object' ? msg.recipient.id._id : msg.recipient?.id
-              },
-              content: msg.content,
-              createdAt: msg.createdAt
-            });
-          });
-        }
-        
         setMessages(res.messages || []);
         // Translate all messages when conversation loads
         if (res.messages && res.messages.length > 0) {
@@ -244,17 +205,6 @@ export default function Messages() {
   // Real-time message receiving
   useEffect(() => {
     const unsubscribe = socketService.onMessage((message) => {
-      console.log('📨 Real-time message received:', message);
-      console.log('📨 Current conversation:', selectedConversation?.conversationId);
-      console.log('📨 Message conversation context:', {
-        senderId: message.sender?.id,
-        recipientId: message.recipient?.id,
-        userId: user._id,
-        currentConversationParticipants: selectedConversation?.participants?.map(p => p.id),
-        messageConversationId: message.conversationId,
-        currentConversationId: selectedConversation?.conversationId
-      });
-      
       // Check if message belongs to current conversation
       if (selectedConversation && selectedConversation.participants) {
         const currentParticipantIds = selectedConversation.participants.map(p => p.id);
@@ -271,33 +221,20 @@ export default function Messages() {
         // Additional check: verify the message involves the current user
         const involvesCurrentUser = message.sender?.id === user._id || message.recipient?.id === user._id;
         
-        console.log('📨 Message belongs to current conversation:', belongsToCurrentConversation);
-        console.log('📨 Conversation ID matches:', conversationIdMatches);
-        console.log('📨 Involves current user:', involvesCurrentUser);
-        
         if (belongsToCurrentConversation && conversationIdMatches && involvesCurrentUser) {
           setMessages((prev) => {
             // Check if message already exists
             const exists = prev.some(m => m._id === message._id);
             if (exists) {
-              console.log('📨 Message already exists, skipping');
               return prev;
             }
             
-            console.log('📨 Adding new message to current conversation');
             const newMessages = [...prev, message];
             // Translate the new message
             translateMessage(message, selectedLanguage);
             return newMessages;
           });
-        } else {
-          console.log('📨 Message does not belong to current conversation, ignoring');
-          console.log('📨 Reason: belongsToCurrentConversation =', belongsToCurrentConversation, 
-                     'conversationIdMatches =', conversationIdMatches,
-                     'involvesCurrentUser =', involvesCurrentUser);
         }
-      } else {
-        console.log('📨 No selected conversation, ignoring message');
       }
     });
     return unsubscribe;
@@ -306,7 +243,6 @@ export default function Messages() {
   // Handle typing indicators
   useEffect(() => {
     const unsubscribe = socketService.onTyping((data) => {
-      console.log('⌨️ Typing indicator:', data);
       if (selectedConversation) {
         const recipient = selectedConversation.participants.find(p => p.id !== user._id);
         if (recipient && data.userId === recipient.id) {
@@ -328,7 +264,6 @@ export default function Messages() {
   // Translate all messages when language changes
   useEffect(() => {
     if (messages.length > 0 && selectedLanguage) {
-      console.log('🌐 Language changed, translating', messages.length, 'messages to', selectedLanguage);
       translateAllMessages(messages, selectedLanguage);
     }
   }, [selectedLanguage, messages.length]);
@@ -337,16 +272,10 @@ export default function Messages() {
   const translateAllMessages = async (messagesToTranslate, targetLang) => {
     if (messagesToTranslate.length === 0 || !targetLang) return;
     
-    console.log('🌐 Starting translation of', messagesToTranslate.length, 'messages to', targetLang);
-    console.log('🌐 DeepL API Key available:', !!import.meta.env.VITE_DEEPL_API_KEY);
-    
     setTranslationLoading(true);
     try {
-      console.log('🌐 Translating messages to:', targetLang);
       const translated = await deeplTranslationService.translateMessages(messagesToTranslate, targetLang);
-      console.log('✅ Translation completed, results:', translated);
       setTranslatedMessages(translated);
-      console.log('✅ Translation completed');
     } catch (error) {
       console.error('❌ Translation error:', error);
     } finally {
@@ -362,7 +291,6 @@ export default function Messages() {
     
     if (originalLang !== targetLang && originalText) {
       try {
-        console.log('🌐 Translating single message:', originalText.substring(0, 50) + '...');
         const translatedText = await deeplTranslationService.translateText(originalText, originalLang, targetLang);
         setTranslatedMessages(prev => ({
           ...prev,
@@ -403,16 +331,12 @@ export default function Messages() {
     };
     
     try {
-      console.log('📤 Sending message:', messageData);
-      
       // Send via API for persistence
       const apiResponse = await apiService.sendMessage(messageData);
-      console.log('✅ Message sent via API:', apiResponse);
       
       // Send via socket for real-time delivery
       if (socketService && socketService.getConnectionStatus()) {
         socketService.sendMessage(recipient.id, messageText, selectedLanguage, userType);
-        console.log('📡 Message sent via socket');
       } else {
         console.warn('⚠️ Socket not connected, message sent via API only');
       }
@@ -462,18 +386,12 @@ export default function Messages() {
   const handleLanguageChange = async (newLanguage) => {
     if (newLanguage === selectedLanguage) return;
     
-    console.log('🌐 Language changed from', selectedLanguage, 'to', newLanguage);
-    console.log('🔑 DeepL API Key:', import.meta.env.VITE_DEEPL_API_KEY ? 'Available' : 'Missing');
-    
     // Translate the current message if it exists
     if (newMessage.trim()) {
       try {
-        console.log('🌐 Translating current message to:', newLanguage);
         const translated = await deeplTranslationService.translateText(newMessage, selectedLanguage, newLanguage);
-        console.log('✅ Current message translated:', translated);
         setNewMessage(translated);
       } catch (error) {
-        console.error('❌ Translation error:', error);
         // Keep original message if translation fails
       }
     }
@@ -487,11 +405,7 @@ export default function Messages() {
     
     // Translate all existing messages in the conversation
     if (messages.length > 0) {
-      console.log('🌐 Translating all messages to:', newLanguage);
-      console.log('📝 Messages to translate:', messages);
-      await translateAllMessages(messages, newLanguage);
-    } else {
-      console.log('📝 No messages to translate');
+      translateAllMessages(messages, newLanguage);
     }
   };
 
@@ -508,32 +422,17 @@ export default function Messages() {
     const originalText = message.content?.text || message.text || '';
     const originalLang = message.content?.language || message.language || 'en';
     
-    console.log('📝 getDisplayMessage:', {
-      messageId,
-      originalText: originalText.substring(0, 30) + '...',
-      originalLang,
-      selectedLanguage,
-      hasTranslation: !!translatedMessages[messageId],
-      translatedText: translatedMessages[messageId]?.substring(0, 30) + '...',
-      senderId: message.sender?.id,
-      userId: user._id,
-      isOwnMessage: message.sender?.id === user._id
-    });
-    
     // If we have a translated version, show it
     if (translatedMessages[messageId]) {
-      console.log('✅ Showing translated message:', translatedMessages[messageId].substring(0, 30) + '...');
       return translatedMessages[messageId];
     }
     
     // If message is already in selected language, show original
     if (originalLang === selectedLanguage) {
-      console.log('⏭️ Showing original message (same language)');
       return originalText;
     }
     
     // Otherwise show original (will be translated later)
-    console.log('📄 Showing original message (will be translated)');
     return originalText;
   };
 
@@ -545,18 +444,6 @@ export default function Messages() {
       : message.sender?.id;
     const userId = user._id;
     const isOwn = senderId === userId;
-    
-    console.log('🔍 isOwnMessage check:', {
-      messageId: message._id,
-      senderId: senderId,
-      userId: userId,
-      isOwn: isOwn,
-      senderType: message.sender?.type,
-      userType: userType,
-      senderObject: message.sender,
-      recipientObject: message.recipient,
-      senderIdType: typeof message.sender?.id
-    });
     
     return isOwn;
   };
@@ -647,24 +534,33 @@ export default function Messages() {
           <div className="flex flex-col md:flex-row h-[80vh] md:h-[600px]">
             {/* Sidebar - Conversation List */}
             <div className="w-full md:w-1/3 border-r border-gray-200 bg-gray-50 max-h-60 md:max-h-full overflow-y-auto">
-              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                <div>
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-2">
                   <h2 className="text-xl font-semibold text-gray-800">Messages</h2>
-                  <p className="text-sm text-gray-600">Chat with our vendors</p>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <div className={`w-2 h-2 rounded-full ${socketService.getConnectionStatus() ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className="text-xs text-gray-500">
-                      {socketService.getConnectionStatus() ? 'Connected' : 'Disconnected'}
-                    </span>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setShowLanguageSelector(!showLanguageSelector)}
+                      className="flex items-center space-x-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <FaGlobe className="text-gray-600" />
+                      <span className="text-sm text-gray-700">{getLanguageFlag(selectedLanguage)} {getLanguageName(selectedLanguage)}</span>
+                      <FaChevronDown className="text-gray-500 text-xs" />
+                    </button>
+                    <button
+                      onClick={() => setShowNewMessageModal(true)}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                      New Message
+                    </button>
                   </div>
                 </div>
-                <button
-                  className="ml-2 p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
-                  title="New Message"
-                  onClick={() => setShowNewMessageModal(true)}
-                >
-                  +
-                </button>
+                <p className="text-sm text-gray-600">Chat with our vendors</p>
+                <div className="flex items-center space-x-2 mt-1">
+                  <div className={`w-2 h-2 rounded-full ${socketService.getConnectionStatus() ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span className="text-xs text-gray-500">
+                    {socketService.getConnectionStatus() ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
               </div>
               <div className="overflow-y-auto h-48 md:h-full">
                 {loading ? (
@@ -830,23 +726,6 @@ export default function Messages() {
                     <div className="mb-2 text-xs text-gray-400">
                       DeepL API: {import.meta.env.VITE_DEEPL_API_KEY ? '✅ Available' : '❌ Missing'}
                     </div>
-                    <button
-                      onClick={async () => {
-                        try {
-                          console.log('🧪 Testing translation...');
-                          console.log('🔑 DeepL API Key available:', !!import.meta.env.VITE_DEEPL_API_KEY);
-                          const result = await deeplTranslationService.translateText('Hello world', 'en', 'es');
-                          console.log('✅ Test translation result:', result);
-                          alert(`Test translation: "Hello world" (en) → "${result}" (es)`);
-                        } catch (err) {
-                          console.error('❌ Test translation failed:', err);
-                          alert(`Translation test failed: ${err.message}`);
-                        }
-                      }}
-                      className="text-xs text-blue-500 hover:text-blue-700 underline mb-2"
-                    >
-                      Test Translation (en→es)
-                    </button>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
                       {Object.entries(LANGUAGES).map(([code, lang]) => (
                         <button
@@ -926,15 +805,10 @@ export default function Messages() {
                 {showUserDropdown && searchQuery && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {(() => {
-                      console.log('🔍 Searching for:', searchQuery);
-                      console.log('👥 All users available:', allUsers);
-                      
                       const filteredUsers = allUsers.filter(user => 
                         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         user.email.toLowerCase().includes(searchQuery.toLowerCase())
                       );
-                      
-                      console.log('✅ Filtered users:', filteredUsers);
                       
                       return filteredUsers
                         .slice(0, 10) // Limit to 10 results

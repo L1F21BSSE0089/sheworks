@@ -8,10 +8,6 @@ class DeepLTranslationService {
   async translateText(text, fromLang, toLang) {
     if (!text || fromLang === toLang) return text;
     
-    console.log('🌐 DeepL translateText called:', { text, fromLang, toLang });
-    console.log('🔑 DeepL API Key available:', !!this.apiKey);
-    console.log('🌐 Backend URL:', this.baseUrl);
-    
     try {
       // Get auth token from localStorage
       const token = localStorage.getItem('token');
@@ -20,8 +16,6 @@ class DeepLTranslationService {
         return this.fallbackTranslation(text, fromLang, toLang);
       }
 
-      console.log('📤 Calling backend translation endpoint...');
-      
       const response = await fetch(`${this.baseUrl}/api/messages/translate`, {
         method: 'POST',
         headers: {
@@ -35,8 +29,6 @@ class DeepLTranslationService {
         })
       });
 
-      console.log('📥 Backend translation response status:', response.status);
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Backend translation error:', errorText);
@@ -44,16 +36,12 @@ class DeepLTranslationService {
       }
 
       const data = await response.json();
-      console.log('📥 Backend translation response data:', data);
-      
       const translatedText = data.translatedText || text;
-      console.log('✅ Final translated text:', translatedText);
       
       return translatedText;
 
     } catch (error) {
       console.error('❌ Backend translation error:', error);
-      console.log('🔄 Falling back to MyMemory translation...');
       return this.fallbackTranslation(text, fromLang, toLang);
     }
   }
@@ -72,8 +60,6 @@ class DeepLTranslationService {
   async translateMessages(messages, targetLang) {
     if (!messages || messages.length === 0) return {};
     
-    console.log('🌐 Starting batch translation of', messages.length, 'messages to', targetLang);
-    
     try {
       // Get auth token from localStorage
       const token = localStorage.getItem('token');
@@ -82,8 +68,6 @@ class DeepLTranslationService {
         return this.translateMessagesIndividually(messages, targetLang);
       }
 
-      console.log('📤 Calling backend batch translation endpoint...');
-      
       const response = await fetch(`${this.baseUrl}/api/messages/translate-batch`, {
         method: 'POST',
         headers: {
@@ -96,8 +80,6 @@ class DeepLTranslationService {
         })
       });
 
-      console.log('📥 Backend batch translation response status:', response.status);
-
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Backend batch translation error:', errorText);
@@ -105,7 +87,6 @@ class DeepLTranslationService {
       }
 
       const data = await response.json();
-      console.log('📥 Backend batch translation response data:', data);
       
       // Convert array response to object format
       const translatedMessages = {};
@@ -113,12 +94,10 @@ class DeepLTranslationService {
         translatedMessages[item.messageId] = item.translatedText;
       });
       
-      console.log('✅ Batch translation completed');
       return translatedMessages;
 
     } catch (error) {
       console.error('❌ Backend batch translation error:', error);
-      console.log('🔄 Falling back to individual translations...');
       return this.translateMessagesIndividually(messages, targetLang);
     }
   }
@@ -132,21 +111,13 @@ class DeepLTranslationService {
       const originalText = message.content?.text || message.text || '';
       const originalLang = message.content?.language || message.language || 'en';
       
-      console.log(`🌐 Translating message ${messageId}:`, {
-        originalText: originalText.substring(0, 50) + '...',
-        fromLang: originalLang,
-        toLang: targetLang
-      });
-      
       // Always translate if target language is different from original
       if (originalLang !== targetLang && originalText) {
         const translatedText = await this.translateText(originalText, originalLang, targetLang);
         translatedMessages[messageId] = translatedText;
-        console.log(`✅ Translated to ${targetLang}:`, translatedText.substring(0, 50) + '...');
       } else {
         // If same language or no text, keep original
         translatedMessages[messageId] = originalText;
-        console.log(`⏭️ No translation needed for ${messageId}`);
       }
     }
     
@@ -156,30 +127,21 @@ class DeepLTranslationService {
   // Fallback translation using MyMemory (free, no API key required)
   async fallbackTranslation(text, fromLang, toLang) {
     try {
-      console.log('🔄 MyMemory fallback translation:', { text, fromLang, toLang });
-      
       const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`;
-      console.log('📤 MyMemory API URL:', url);
       
       const response = await fetch(url);
       
-      console.log('📥 MyMemory API response status:', response.status);
-      
       if (!response.ok) {
-        console.error('❌ MyMemory API error:', response.status);
         return text; // Return original if translation fails
       }
       
       const data = await response.json();
-      console.log('📥 MyMemory API response data:', data);
       
       const translatedText = data.responseData?.translatedText || text;
-      console.log('✅ MyMemory translated text:', translatedText);
       
       return translatedText;
       
     } catch (error) {
-      console.error('❌ Fallback translation error:', error);
       return text; // Return original if all translations fail
     }
   }
