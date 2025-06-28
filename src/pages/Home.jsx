@@ -4,6 +4,7 @@ import { FaFilter, FaSearch, FaStar, FaHeart, FaShoppingCart, FaEye } from "reac
 import apiService from "../services/api";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import Spinner from "../components/Spinner";
 import HeartIcon from "../components/HeartIcon";
 import { useWishlist } from "../context/WishlistContext";
@@ -31,6 +32,7 @@ const FILTER_OPTIONS = {
 
 export default function Home({ showToast }) {
   const { user } = useAuth();
+  const { t, isLoadingTranslations } = useLanguage();
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -241,14 +243,14 @@ export default function Home({ showToast }) {
                 className="flex-1 bg-primary text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors flex items-center justify-center space-x-1"
               >
                 <FaShoppingCart className="w-4 h-4" />
-                <span>Add to Cart</span>
+                <span>{t("Add to Cart")}</span>
               </button>
               <Link
                 to={`/products/${product._id}`}
                 className="flex-1 bg-white text-gray-700 py-2 px-3 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors flex items-center justify-center space-x-1"
               >
                 <FaEye className="w-4 h-4" />
-                <span>View</span>
+                <span>{t("View")}</span>
               </Link>
             </div>
           </div>
@@ -325,16 +327,16 @@ export default function Home({ showToast }) {
     </div>
   );
 
-  if (loading) {
+  if (loading || isLoadingTranslations) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8 text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Welcome to SheWorks
+              {t("Welcome to SheWorks")}
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Discover from women entrepreneurs. Shop jewelry, accessories, and more!
+              {t("Discover from women entrepreneurs. Shop jewelry, accessories, and more!")}
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -353,16 +355,16 @@ export default function Home({ showToast }) {
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Welcome to SheWorks
+            {t("Welcome to SheWorks")}
           </h1>
           <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto">
-            Discover from women entrepreneurs. Shop jewelry, accessories, and more!
+            {t("Discover from women entrepreneurs. Shop jewelry, accessories, and more!")}
           </p>
           <Link
             to="/products"
             className="bg-white text-purple-600 px-8 py-4 rounded-full text-lg font-semibold hover:bg-gray-100 transition-colors inline-block shadow-lg"
           >
-            Shop All Products
+            {t("Shop All Products")}
           </Link>
         </div>
       </div>
@@ -390,7 +392,7 @@ export default function Home({ showToast }) {
                 className="flex items-center space-x-2 bg-white px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
               >
                 <FaFilter className="text-gray-600" />
-                <span className="text-gray-700">Filters</span>
+                <span className="text-gray-700">{t("Filter")}</span>
               </button>
               
               <div className="text-sm text-gray-600">
@@ -404,7 +406,7 @@ export default function Home({ showToast }) {
           {/* Filters Sidebar */}
           <div className={`lg:w-64 ${showFilters ? 'block' : 'hidden lg:block'}`}>
             <div className="bg-white rounded-xl shadow-lg p-6 sticky top-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-6">Filters</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-6">{t("Filter")}</h2>
               
               <FilterSection
                 title="Price Range"
@@ -436,7 +438,7 @@ export default function Home({ showToast }) {
                 })}
                 className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
               >
-                Clear All Filters
+                {t("Clear All Filters")}
               </button>
             </div>
           </div>
@@ -449,7 +451,7 @@ export default function Home({ showToast }) {
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-600 text-lg">No products found matching your criteria.</p>
+                <p className="text-gray-600 text-lg">{t("No products found")}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

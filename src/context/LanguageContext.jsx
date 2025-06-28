@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import apiService from "../services/api";
-import deeplTranslationService from "../services/deeplTranslation";
 
 const LanguageContext = createContext();
 
@@ -89,9 +88,20 @@ const INTERFACE_TRANSLATIONS = {
     "Terms of Service": "Terms of Service",
     "All rights reserved": "All rights reserved",
     "Follow us": "Follow us",
-    "Customer Service": "Customer Service"
+    "Customer Service": "Customer Service",
+    "My Wishlist": "My Wishlist",
+    "Your wishlist is empty": "Your wishlist is empty",
+    "Browse Products": "Browse Products",
+    "Remove": "Remove",
+    "Welcome to SheWorks": "Welcome to SheWorks",
+    "Discover from women entrepreneurs": "Discover from women entrepreneurs",
+    "Shop All Products": "Shop All Products",
+    "No products found": "No products found",
+    "Shop jewelry, accessories, and more!": "Shop jewelry, accessories, and more!",
+    "Clear All Filters": "Clear All Filters",
+    "Filters": "Filters"
   },
-  ur: {} // Will be populated with DeepL translations
+  ur: {} // Will be populated with API translations
 };
 
 export function useLanguage() {
@@ -102,30 +112,44 @@ export function LanguageProvider({ children }) {
   const [interfaceLanguage, setInterfaceLanguage] = useState(() => localStorage.getItem("interfaceLanguage") || "en");
   const [interfaceTranslations, setInterfaceTranslations] = useState(INTERFACE_TRANSLATIONS);
   const [translationCache, setTranslationCache] = useState({});
+  const [isLoadingTranslations, setIsLoadingTranslations] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("interfaceLanguage", interfaceLanguage);
   }, [interfaceLanguage]);
 
-  // Initialize Urdu translations on first load
+  // Initialize Urdu translations using API
   useEffect(() => {
     const initializeUrduTranslations = async () => {
       if (interfaceTranslations.ur && Object.keys(interfaceTranslations.ur).length === 0) {
+        setIsLoadingTranslations(true);
         const urduTranslations = {};
         
-        for (const [key, englishText] of Object.entries(INTERFACE_TRANSLATIONS.en)) {
-          try {
-            const translated = await deeplTranslationService.translateText(englishText, 'en', 'ur');
-            urduTranslations[key] = translated;
-          } catch (error) {
-            urduTranslations[key] = englishText; // Fallback to English
+        try {
+          // Translate all interface texts to Urdu using the API
+          for (const [key, englishText] of Object.entries(INTERFACE_TRANSLATIONS.en)) {
+            try {
+              const translated = await apiService.translateText(englishText, 'en', 'ur', 'interface');
+              urduTranslations[key] = translated;
+              // Add small delay to avoid overwhelming the API
+              await new Promise(resolve => setTimeout(resolve, 100));
+            } catch (error) {
+              console.warn(`Failed to translate "${key}":`, error);
+              urduTranslations[key] = englishText; // Fallback to English
+            }
           }
+          
+          setInterfaceTranslations(prev => ({
+            ...prev,
+            ur: urduTranslations
+          }));
+          
+          console.log('✅ Urdu translations loaded successfully');
+        } catch (error) {
+          console.error('❌ Failed to load Urdu translations:', error);
+        } finally {
+          setIsLoadingTranslations(false);
         }
-        
-        setInterfaceTranslations(prev => ({
-          ...prev,
-          ur: urduTranslations
-        }));
       }
     };
 
@@ -145,7 +169,7 @@ export function LanguageProvider({ children }) {
     return INTERFACE_TRANSLATIONS.en[key] || key;
   };
 
-  // Message translation function using DeepL
+  // Message translation function using API
   const translateMessage = async (message, userLang) => {
     if (message.content.language === userLang) return message.content.text;
     
@@ -154,38 +178,37 @@ export function LanguageProvider({ children }) {
       return translationCache[cacheKey];
     }
     
-    const translatedText = await deeplTranslationService.translateText(message.content.text, message.content.language, userLang);
-    setTranslationCache(prev => ({ ...prev, [cacheKey]: translatedText }));
-    return translatedText;
+    try {
+      const translatedText = await apiService.translateText(
+        message.content.text, 
+        message.content.language, 
+        userLang,
+        'message'
+      );
+      setTranslationCache(prev => ({ ...prev, [cacheKey]: translatedText }));
+      return translatedText;
+    } catch (error) {
+      console.error('Translation error:', error);
+      return message.content.text; // Return original if translation fails
+    }
   };
 
   const translateBatch = async (messages, targetLang) => {
     if (!messages || messages.length === 0) return [];
     
-    const translatedMessages = [];
-    
-    for (const message of messages) {
-      if (message.content.language !== targetLang) {
-        const translatedText = await deeplTranslationService.translateText(message.content.text, message.content.language, targetLang);
-        translatedMessages.push({
-          messageId: message._id || message.id,
-          originalText: message.content.text,
-          translatedText,
-          originalLanguage: message.content.language,
-          targetLanguage: targetLang
-        });
-      } else {
-        translatedMessages.push({
-          messageId: message._id || message.id,
-          originalText: message.content.text,
-          translatedText: message.content.text,
-          originalLanguage: message.content.language,
-          targetLanguage: targetLang
-        });
-      }
+    try {
+      const translatedMessages = await apiService.translateBatch(messages, targetLang);
+      return translatedMessages;
+    } catch (error) {
+      console.error('Batch translation error:', error);
+      return messages.map(message => ({
+        messageId: message._id || message.id,
+        originalText: message.content.text,
+        translatedText: message.content.text,
+        originalLanguage: message.content.language,
+        targetLanguage: targetLang
+      }));
     }
-    
-    return translatedMessages;
   };
 
   const clearTranslationCache = () => {
@@ -201,7 +224,8 @@ export function LanguageProvider({ children }) {
       t, // Interface translation function
       translateMessage,
       translateBatch,
-      clearTranslationCache
+      clearTranslationCache,
+      isLoadingTranslations
     }}>
       {children}
     </LanguageContext.Provider>

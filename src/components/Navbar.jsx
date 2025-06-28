@@ -149,14 +149,15 @@ export default function Navbar() {
               <Link to="/admin-dashboard" className="nav-link" aria-label="Admin Dashboard">Admin Dashboard</Link>
             )}
             <select
-              className="bg-gray-100 px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="bg-gray-100 px-2 py-1 rounded border border-gray-300 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:bg-gray-50 transition-colors"
               value={interfaceLanguage}
               onChange={e => setInterfaceLanguage(e.target.value)}
               aria-label="Select language"
+              title="Select language"
             >
               {Object.entries(INTERFACE_LANGUAGES).map(([code, lang]) => (
                 <option key={code} value={code}>
-                  {lang.flag} {lang.nativeName}
+                  {lang.flag} {lang.name}
                 </option>
               ))}
             </select>
@@ -368,7 +369,7 @@ export default function Navbar() {
                 >
                   {Object.entries(INTERFACE_LANGUAGES).map(([code, lang]) => (
                     <option key={code} value={code}>
-                      {lang.flag} {lang.nativeName}
+                      {lang.flag} {lang.name}
                     </option>
                   ))}
                 </select>
