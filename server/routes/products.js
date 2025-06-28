@@ -4,7 +4,6 @@ const Vendor = require('../models/Vendor');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const Order = require('../models/Order');
-const fetch = require('node-fetch');
 
 const router = express.Router();
 
@@ -232,31 +231,9 @@ const getAIRecommendations = async (userPreferences = null, limit = 8) => {
       return await getFallbackRecommendations(limit);
     }
 
-    // Use Hugging Face Inference API for AI recommendations
-    const response = await fetch('https://api-inference.huggingface.co/models/facebook/bart-large-cnn', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${huggingfaceApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        inputs: `Recommend ${limit} products based on: ${userPreferences || 'general shopping preferences'}`,
-        parameters: {
-          max_length: 100,
-          temperature: 0.7
-        }
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error('Hugging Face API request failed');
-    }
-
-    const data = await response.json();
-    console.log('AI recommendation response:', data);
-    
-    // For now, return fallback recommendations
-    // In a real implementation, you'd parse the AI response and match with products
+    // For now, use fallback recommendations
+    // TODO: Implement proper AI recommendations when fetch issues are resolved
+    console.log('Using fallback recommendations (AI integration pending)');
     return await getFallbackRecommendations(limit);
     
   } catch (error) {
