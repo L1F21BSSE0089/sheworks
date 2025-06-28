@@ -170,9 +170,13 @@ export default function Messages() {
   useEffect(() => {
     if (!selectedConversation || !user) return;
     
+    console.log('🔄 Switching to conversation:', selectedConversation.conversationId);
+    console.log('🔄 Conversation participants:', selectedConversation.participants);
+    
     setLoading(true);
     setError(null);
-    // Clear translated messages when switching conversations
+    // Clear messages and translated messages when switching conversations
+    setMessages([]);
     setTranslatedMessages({});
     
     const recipient = selectedConversation.participants.find(p => p.id !== user._id);
@@ -235,25 +239,53 @@ export default function Messages() {
   useEffect(() => {
     const unsubscribe = socketService.onMessage((message) => {
       console.log('📨 Real-time message received:', message);
+      console.log('📨 Current conversation:', selectedConversation?.conversationId);
+      console.log('📨 Message conversation context:', {
+        senderId: message.sender?.id,
+        recipientId: message.recipient?.id,
+        userId: user._id,
+        currentConversationParticipants: selectedConversation?.participants?.map(p => p.id),
+        messageConversationId: message.conversationId
+      });
       
       // Check if message belongs to current conversation
-      if (selectedConversation) {
-        const recipient = selectedConversation.participants.find(p => p.id !== user._id);
-        if (recipient && (
-          (message.sender.id === user._id && message.recipient.id === recipient.id) ||
-          (message.sender.id === recipient.id && message.recipient.id === user._id)
-        )) {
+      if (selectedConversation && selectedConversation.participants) {
+        const currentParticipantIds = selectedConversation.participants.map(p => p.id);
+        const messageParticipantIds = [message.sender?.id, message.recipient?.id];
+        
+        // Check if both sender and recipient are in the current conversation
+        const belongsToCurrentConversation = currentParticipantIds.includes(message.sender?.id) && 
+                                           currentParticipantIds.includes(message.recipient?.id);
+        
+        // Additional check: if message has conversationId, verify it matches
+        const conversationIdMatches = !message.conversationId || 
+                                    message.conversationId === selectedConversation.conversationId;
+        
+        console.log('📨 Message belongs to current conversation:', belongsToCurrentConversation);
+        console.log('📨 Conversation ID matches:', conversationIdMatches);
+        
+        if (belongsToCurrentConversation && conversationIdMatches) {
           setMessages((prev) => {
             // Check if message already exists
             const exists = prev.some(m => m._id === message._id);
-            if (exists) return prev;
+            if (exists) {
+              console.log('📨 Message already exists, skipping');
+              return prev;
+            }
             
+            console.log('📨 Adding new message to current conversation');
             const newMessages = [...prev, message];
             // Translate the new message
             translateMessage(message, selectedLanguage);
             return newMessages;
           });
+        } else {
+          console.log('📨 Message does not belong to current conversation, ignoring');
+          console.log('📨 Reason: belongsToCurrentConversation =', belongsToCurrentConversation, 
+                     'conversationIdMatches =', conversationIdMatches);
         }
+      } else {
+        console.log('📨 No selected conversation, ignoring message');
       }
     });
     return unsubscribe;
