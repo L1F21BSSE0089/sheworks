@@ -99,7 +99,8 @@ const INTERFACE_TRANSLATIONS = {
     "No products found": "No products found",
     "Shop jewelry, accessories, and more!": "Shop jewelry, accessories, and more!",
     "Clear All Filters": "Clear All Filters",
-    "Filters": "Filters"
+    "Filters": "Filters",
+    "Recommended for You": "Recommended for You"
   },
   ur: {} // Will be populated with API translations
 };

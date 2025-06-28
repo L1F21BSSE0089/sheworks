@@ -37,6 +37,8 @@ export default function Home({ showToast }) {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const { addToCart } = useCart();
   const { wishlist, addToWishlist, removeFromWishlist, isInWishlist, loading: wishlistLoading } = useWishlist();
   
@@ -94,6 +96,23 @@ export default function Home({ showToast }) {
 
     loadProducts();
   }, []);
+
+  // Load recommendations
+  useEffect(() => {
+    const loadRecommendations = async () => {
+      try {
+        setLoadingRecommendations(true);
+        const res = await apiService.getRecommendations(user?._id, 4);
+        setRecommendations(res.products || []);
+      } catch (err) {
+        console.error('Error loading recommendations:', err);
+      } finally {
+        setLoadingRecommendations(false);
+      }
+    };
+
+    loadRecommendations();
+  }, [user]);
 
   // Apply filters
   useEffect(() => {
@@ -463,6 +482,18 @@ export default function Home({ showToast }) {
           </div>
         </div>
       </div>
+
+      {/* Recommendations Section */}
+      {recommendations.length > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">{t("Recommended for You")}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {recommendations.map((product) => (
+              <ProductCard key={product._id} product={product} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
