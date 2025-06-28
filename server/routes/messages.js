@@ -6,6 +6,15 @@ const Vendor = require('../models/Vendor');
 
 const router = express.Router();
 
+// Translation cache to avoid repeated API calls
+const translationCache = new Map();
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+// Rate limiting for translation requests
+const translationRequests = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 10; // Max 10 requests per minute
+
 // Middleware to verify token
 const verifyToken = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -23,17 +32,74 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+// Rate limiting middleware for translations
+const rateLimitTranslations = (req, res, next) => {
+  const userId = req.user?.userId || req.ip;
+  const now = Date.now();
+  
+  if (!translationRequests.has(userId)) {
+    translationRequests.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+  } else {
+    const userRequests = translationRequests.get(userId);
+    if (now > userRequests.resetTime) {
+      userRequests.count = 1;
+      userRequests.resetTime = now + RATE_LIMIT_WINDOW;
+    } else if (userRequests.count >= RATE_LIMIT_MAX_REQUESTS) {
+      return res.status(429).json({ 
+        error: 'Too many translation requests. Please try again later.',
+        retryAfter: Math.ceil((userRequests.resetTime - now) / 1000)
+      });
+    } else {
+      userRequests.count++;
+    }
+  }
+  
+  next();
+};
+
+// Get cached translation
+const getCachedTranslation = (text, fromLang, toLang) => {
+  const cacheKey = `${text}:${fromLang}:${toLang}`;
+  const cached = translationCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.translation;
+  }
+  
+  return null;
+};
+
+// Set cached translation
+const setCachedTranslation = (text, fromLang, toLang, translation) => {
+  const cacheKey = `${text}:${fromLang}:${toLang}`;
+  translationCache.set(cacheKey, {
+    translation,
+    timestamp: Date.now()
+  });
+};
+
 // DeepL Translation Service
 const translateText = async (text, fromLang, toLang) => {
   if (!text || fromLang === toLang) return text;
   
   console.log('🌐 Backend translateText called:', { text, fromLang, toLang });
+  
+  // Check cache first
+  const cachedTranslation = getCachedTranslation(text, fromLang, toLang);
+  if (cachedTranslation) {
+    console.log('✅ Using cached translation:', cachedTranslation);
+    return cachedTranslation;
+  }
+  
   console.log('🔑 DeepL API Key available:', !!process.env.DEEPL_API_KEY);
   
   try {
     // Use DeepL API for translation
     if (process.env.DEEPL_API_KEY) {
       console.log('📤 Calling DeepL API...');
+      
+      // Add delay to prevent rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       const deeplResponse = await fetch('https://api-free.deepl.com/v2/translate', {
         method: 'POST',
@@ -55,6 +121,9 @@ const translateText = async (text, fromLang, toLang) => {
         console.log('📥 DeepL API response data:', data);
         const translatedText = data.translations?.[0]?.text || text;
         console.log('✅ DeepL translated text:', translatedText);
+        
+        // Cache the translation
+        setCachedTranslation(text, fromLang, toLang, translatedText);
         return translatedText;
       } else {
         const errorText = await deeplResponse.text();
@@ -66,6 +135,10 @@ const translateText = async (text, fromLang, toLang) => {
 
     // Fallback to MyMemory (free, no API key required)
     console.log('🔄 Using MyMemory fallback translation...');
+    
+    // Add delay to prevent rate limiting
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
     const myMemoryResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`);
     
     console.log('📥 MyMemory API response status:', myMemoryResponse.status);
@@ -75,6 +148,9 @@ const translateText = async (text, fromLang, toLang) => {
       console.log('📥 MyMemory API response data:', myMemoryData);
       const translatedText = myMemoryData.responseData?.translatedText || text;
       console.log('✅ MyMemory translated text:', translatedText);
+      
+      // Cache the translation
+      setCachedTranslation(text, fromLang, toLang, translatedText);
       return translatedText;
     } else {
       console.error('❌ MyMemory API error:', myMemoryResponse.status);
@@ -112,8 +188,43 @@ const mapLanguageCode = (code) => {
   return languageMap[code] || 'EN';
 };
 
+// Bulk interface translation endpoint
+router.post('/translate-interface', verifyToken, rateLimitTranslations, async (req, res) => {
+  try {
+    const { texts, fromLang, toLang } = req.body;
+    
+    if (!texts || !Array.isArray(texts) || !fromLang || !toLang) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const results = {};
+    
+    for (const text of texts) {
+      // Check cache first
+      const cachedTranslation = getCachedTranslation(text, fromLang, toLang);
+      if (cachedTranslation) {
+        results[text] = cachedTranslation;
+        continue;
+      }
+      
+      // Translate if not cached
+      const translatedText = await translateText(text, fromLang, toLang);
+      results[text] = translatedText;
+      
+      // Add delay between translations to prevent rate limiting
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
+
+    res.json({ translations: results });
+
+  } catch (error) {
+    console.error('Interface translation error:', error);
+    res.status(500).json({ error: 'Interface translation failed' });
+  }
+});
+
 // Translation endpoint
-router.post('/translate', verifyToken, async (req, res) => {
+router.post('/translate', verifyToken, rateLimitTranslations, async (req, res) => {
   try {
     const { text, fromLang, toLang } = req.body;
     
@@ -125,9 +236,16 @@ router.post('/translate', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const cachedTranslation = getCachedTranslation(text, fromLang, toLang);
+    if (cachedTranslation) {
+      console.log('✅ Translation endpoint result:', { originalText: text, translatedText: cachedTranslation, fromLang, toLang });
+      return res.json({ translatedText: cachedTranslation, originalText: text, fromLang, toLang });
+    }
+
     const translatedText = await translateText(text, fromLang, toLang);
     console.log('✅ Translation endpoint result:', { originalText: text, translatedText, fromLang, toLang });
     
+    setCachedTranslation(text, fromLang, toLang, translatedText);
     res.json({ translatedText, originalText: text, fromLang, toLang });
 
   } catch (error) {
