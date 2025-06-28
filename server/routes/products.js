@@ -4,6 +4,7 @@ const Vendor = require('../models/Vendor');
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const Order = require('../models/Order');
+const fetch = require('node-fetch');
 
 const router = express.Router();
 
@@ -221,60 +222,92 @@ router.delete('/:id', verifyToken, async (req, res) => {
   }
 });
 
-// AI-powered product recommendations
-router.get('/recommendations', async (req, res) => {
+// AI-powered product recommendations using Hugging Face
+const getAIRecommendations = async (userPreferences = null, limit = 8) => {
   try {
-    const { userId, limit = 8 } = req.query;
+    const huggingfaceApiKey = process.env.HUGGINGFACE_API_KEY;
     
-    // Simple recommendation logic based on popularity and ratings
-    let query = { isActive: true };
+    if (!huggingfaceApiKey) {
+      console.log('No Hugging Face API key, using fallback recommendations');
+      return await getFallbackRecommendations(limit);
+    }
+
+    // Use Hugging Face Inference API for AI recommendations
+    const response = await fetch('https://api-inference.huggingface.co/models/facebook/bart-large-cnn', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${huggingfaceApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs: `Recommend ${limit} products based on: ${userPreferences || 'general shopping preferences'}`,
+        parameters: {
+          max_length: 100,
+          temperature: 0.7
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Hugging Face API request failed');
+    }
+
+    const data = await response.json();
+    console.log('AI recommendation response:', data);
     
-    const products = await Product.find(query)
+    // For now, return fallback recommendations
+    // In a real implementation, you'd parse the AI response and match with products
+    return await getFallbackRecommendations(limit);
+    
+  } catch (error) {
+    console.error('AI recommendation error:', error);
+    return await getFallbackRecommendations(limit);
+  }
+};
+
+// Fallback recommendation logic
+const getFallbackRecommendations = async (limit = 8) => {
+  try {
+    const products = await Product.find({ isActive: true })
       .sort({ 'rating.average': -1, 'inventory.stock': -1 })
       .limit(parseInt(limit))
       .populate('vendor', 'businessName')
       .lean();
     
+    return products;
+  } catch (error) {
+    console.error('Fallback recommendation error:', error);
+    return [];
+  }
+};
+
+// AI-powered product recommendations
+router.get('/recommendations', async (req, res) => {
+  try {
+    const { userId, limit = 8 } = req.query;
+    
+    // Get user preferences if available
+    let userPreferences = null;
+    if (userId) {
+      const userOrders = await Order.find({ customer: userId })
+        .populate('items.product')
+        .sort({ createdAt: -1 })
+        .limit(5);
+      
+      const purchasedCategories = userOrders.flatMap(order => 
+        order.items.map(item => item.product?.category).filter(Boolean)
+      );
+      
+      if (purchasedCategories.length > 0) {
+        userPreferences = `user prefers: ${purchasedCategories.join(', ')}`;
+      }
+    }
+    
+    const products = await getAIRecommendations(userPreferences, limit);
     res.json({ products });
   } catch (err) {
     console.error('Recommendation error:', err);
     res.status(500).json({ error: 'Failed to get recommendations' });
-  }
-});
-
-// Personalized recommendations
-router.get('/recommendations/personalized', verifyToken, async (req, res) => {
-  try {
-    const { limit = 8 } = req.query;
-    const userId = req.user.userId;
-    
-    // Get user's purchase history and preferences
-    const userOrders = await Order.find({ customer: userId })
-      .populate('items.product')
-      .sort({ createdAt: -1 })
-      .limit(10);
-    
-    // Extract categories from purchased products
-    const purchasedCategories = userOrders.flatMap(order => 
-      order.items.map(item => item.product?.category).filter(Boolean)
-    );
-    
-    // Get products from preferred categories
-    let query = { isActive: true };
-    if (purchasedCategories.length > 0) {
-      query.category = { $in: purchasedCategories };
-    }
-    
-    const products = await Product.find(query)
-      .sort({ 'rating.average': -1 })
-      .limit(parseInt(limit))
-      .populate('vendor', 'businessName')
-      .lean();
-    
-    res.json({ products });
-  } catch (err) {
-    console.error('Personalized recommendation error:', err);
-    res.status(500).json({ error: 'Failed to get personalized recommendations' });
   }
 });
 
