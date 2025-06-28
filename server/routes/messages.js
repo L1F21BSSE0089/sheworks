@@ -82,22 +82,15 @@ const setCachedTranslation = (text, fromLang, toLang, translation) => {
 const translateText = async (text, fromLang, toLang) => {
   if (!text || fromLang === toLang) return text;
   
-  console.log('🌐 Backend translateText called:', { text, fromLang, toLang });
-  
   // Check cache first
   const cachedTranslation = getCachedTranslation(text, fromLang, toLang);
   if (cachedTranslation) {
-    console.log('✅ Using cached translation:', cachedTranslation);
     return cachedTranslation;
   }
-  
-  console.log('🔑 DeepL API Key available:', !!process.env.DEEPL_API_KEY);
   
   try {
     // Use DeepL API for translation
     if (process.env.DEEPL_API_KEY) {
-      console.log('📤 Calling DeepL API...');
-      
       // Add delay to prevent rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
       
@@ -114,53 +107,35 @@ const translateText = async (text, fromLang, toLang) => {
         })
       });
 
-      console.log('📥 DeepL API response status:', deeplResponse.status);
-
       if (deeplResponse.ok) {
         const data = await deeplResponse.json();
-        console.log('📥 DeepL API response data:', data);
         const translatedText = data.translations?.[0]?.text || text;
-        console.log('✅ DeepL translated text:', translatedText);
         
         // Cache the translation
         setCachedTranslation(text, fromLang, toLang, translatedText);
         return translatedText;
-      } else {
-        const errorText = await deeplResponse.text();
-        console.error('❌ DeepL API error:', deeplResponse.status, errorText);
       }
-    } else {
-      console.log('⚠️ No DeepL API key found, using fallback');
     }
 
     // Fallback to MyMemory (free, no API key required)
-    console.log('🔄 Using MyMemory fallback translation...');
-    
     // Add delay to prevent rate limiting
     await new Promise(resolve => setTimeout(resolve, 200));
     
     const myMemoryResponse = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`);
     
-    console.log('📥 MyMemory API response status:', myMemoryResponse.status);
-    
     if (myMemoryResponse.ok) {
       const myMemoryData = await myMemoryResponse.json();
-      console.log('📥 MyMemory API response data:', myMemoryData);
       const translatedText = myMemoryData.responseData?.translatedText || text;
-      console.log('✅ MyMemory translated text:', translatedText);
       
       // Cache the translation
       setCachedTranslation(text, fromLang, toLang, translatedText);
       return translatedText;
-    } else {
-      console.error('❌ MyMemory API error:', myMemoryResponse.status);
     }
 
   } catch (error) {
-    console.error('❌ Translation error:', error);
+    console.error('Translation error:', error);
   }
   
-  console.log('⚠️ Returning original text due to translation failure');
   return text; // Return original text if translation fails
 };
 
@@ -228,9 +203,6 @@ router.post('/translate', verifyToken, rateLimitTranslations, async (req, res) =
   try {
     const { text, fromLang, toLang } = req.body;
     
-    console.log('🌐 Translation endpoint called with:', { text, fromLang, toLang });
-    console.log('🔑 DeepL API Key in endpoint:', !!process.env.DEEPL_API_KEY);
-    
     if (!text || !fromLang || !toLang) {
       console.error('❌ Missing required fields:', { text, fromLang, toLang });
       return res.status(400).json({ error: 'Missing required fields' });
@@ -238,12 +210,10 @@ router.post('/translate', verifyToken, rateLimitTranslations, async (req, res) =
 
     const cachedTranslation = getCachedTranslation(text, fromLang, toLang);
     if (cachedTranslation) {
-      console.log('✅ Translation endpoint result:', { originalText: text, translatedText: cachedTranslation, fromLang, toLang });
       return res.json({ translatedText: cachedTranslation, originalText: text, fromLang, toLang });
     }
 
     const translatedText = await translateText(text, fromLang, toLang);
-    console.log('✅ Translation endpoint result:', { originalText: text, translatedText, fromLang, toLang });
     
     setCachedTranslation(text, fromLang, toLang, translatedText);
     res.json({ translatedText, originalText: text, fromLang, toLang });
